@@ -557,10 +557,10 @@ function setMode(room, mode) {
 async function applyWhiteScene(room, sc, btn) {
   press(btn);
   const x=p(room), ids=ROOMS[room].entities.map(e=>e.id);
-  const bri=Math.round(sc.bri/100*255), mireds=ctm(sc.ct);
-  await svc('light','turn_on',{entity_id:ids,brightness:bri,color_temp:mireds});
+  const bri=Math.round(sc.bri/100*255), kelvin=ctK(ctm(sc.ct));
+  await svc('light','turn_on',{entity_id:ids,brightness:bri,color_temp_kelvin:kelvin});
   $(x+'-bri').value=sc.bri; $(x+'-bv').innerHTML=sc.bri+'<span class="sunit">%</span>';
-  $(x+'-ct').value=sc.ct;   $(x+'-ctv').innerHTML=ctK(mireds)+'<span class="sunit">K</span>';
+  $(x+'-ct').value=sc.ct;   $(x+'-ctv').innerHTML=kelvin+'<span class="sunit">K</span>';
   toast('🎬 '+sc.name,'ok');
 }
 
@@ -619,7 +619,7 @@ function buildSliders() {
 
     mkSlider($(x+'-ct'),
       v => $(x+'-ctv').innerHTML=ctK(ctm(v))+'<span class="sunit">K</span>',
-      v => svc('light','turn_on',{entity_id:ROOMS[room].entities.map(e=>e.id),color_temp:ctm(v)})
+      v => svc('light','turn_on',{entity_id:ROOMS[room].entities.map(e=>e.id),color_temp_kelvin:ctK(ctm(v))})
     );
 
     const updateColor = () => {
