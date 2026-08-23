@@ -1,44 +1,57 @@
 @echo off
 :: Xeneon Dashboard — Auto-start Setup
-:: Run this ONCE as Administrator. It registers the server to start
-:: silently on every Windows login via Task Scheduler.
+:: Run ONCE as Administrator
 
 set "DIR=%~dp0"
-set "PYTHON=%DIR%venv\Scripts\pythonw.exe"
-set "SCRIPT=%DIR%server.py"
 
-:: Check for Python
+echo === Xeneon Dashboard Setup ===
+echo.
+
+:: Check Python
 where python >nul 2>&1
 if errorlevel 1 (
-    echo [ERROR] Python not found. Install Python from https://python.org
+    echo [ERROR] Python not found.
+    echo Download from https://python.org — check "Add Python to PATH"
     pause & exit /b 1
 )
 
-:: Create venv if not exists
-if not exist "%DIR%venv\" (
-    echo Creating virtual environment...
-    python -m venv "%DIR%venv"
-)
+:: Install cryptography for cert generation
+echo Installing dependencies...
+python -m pip install cryptography --quiet
 
-:: Use system python if venv pythonw not found
-if not exist "%PYTHON%" set "PYTHON=pythonw"
-
-echo Registering Task Scheduler entry...
-schtasks /create /tn "XeneonDashboard" /tr "\"%PYTHON%\" \"%SCRIPT%\"" /sc onlogon /rl limited /f >nul 2>&1
-
+:: Generate SSL certificate and install to Windows trust store
+echo.
+echo Generating SSL certificate...
+python "%DIR%generate_cert.py"
 if errorlevel 1 (
-    echo [WARN] Task Scheduler failed. Trying with full python path...
-    for /f "delims=" %%i in ('where python') do set PYPATH=%%i
-    set "PYPATH=%PYPATH:python.exe=pythonw.exe%"
-    schtasks /create /tn "XeneonDashboard" /tr "\"%PYPATH%\" \"%SCRIPT%\"" /sc onlogon /rl limited /f
+    echo [ERROR] Certificate generation failed.
+    pause & exit /b 1
 )
 
+:: Register Task Scheduler
 echo.
-echo [OK] Xeneon Dashboard will now start automatically on login.
-echo      Dashboard URL: http://192.168.1.148:8080/lights.html
+echo Registering auto-start on login...
+schtasks /delete /tn "XeneonDashboard" /f >nul 2>&1
+schtasks /create /tn "XeneonDashboard" /tr "pythonw \"%DIR%server.py\"" /sc onlogon /rl highest /f >nul 2>&1
+if errorlevel 1 (
+    echo [WARN] Task Scheduler needs Administrator. Re-run as Admin.
+) else (
+    echo [OK] Auto-start registered.
+)
+
+:: Start server now
 echo.
-echo Starting server now...
-start "" pythonw "%SCRIPT%"
-echo Server started silently in background.
+echo Starting server...
+start "" pythonw "%DIR%server.py"
+timeout /t 2 >nul
+
+echo.
+echo =====================================================
+echo  Server running!
+echo  URL: https://192.168.1.148:8080/lights.html
+echo.
+echo  In iCUE: Web URL widget, Size XL
+echo  Paste:   https://192.168.1.148:8080/lights.html
+echo =====================================================
 echo.
 pause
