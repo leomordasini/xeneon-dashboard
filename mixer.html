@@ -412,17 +412,20 @@ function setBank(bank) {
 function toggleMute(ch, muted) {
   const btn  = document.getElementById(`mute-${ch}`);
   const icon = document.getElementById(`mute-icon-${ch}`);
-  if (!btn) return;
+  if (!btn) { console.error('toggleMute: btn not found', ch); return; }
   btn.dataset.muted = String(muted);
   btn.classList.toggle('muted', muted);
   if (icon) icon.textContent = muted ? '🔇' : '🔊';
   btn.classList.add('pressing');
   setTimeout(() => btn.classList.remove('pressing'), 150);
+  const payload = { action:'mute', bank: currentBank, channel: ch, muted };
+  console.log('FETCH MUTE', JSON.stringify(payload));
   fetch('/mixer/action', {
     method: 'POST',
     headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ action:'mute', bank: currentBank, channel: ch, muted })
-  }).catch(() => {});
+    body: JSON.stringify(payload)
+  }).then(r => r.text().then(t => console.log('MUTE RESP', r.status, t)))
+    .catch(e => console.error('MUTE FETCH ERR', e));
 }
 
 function toggleMainMute() {
