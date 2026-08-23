@@ -32,8 +32,9 @@ echo.
 :: Step 4 - Register Task Scheduler tasks
 echo [4/4] Registering Task Scheduler tasks...
 
-schtasks /create /tn "XeneonDashboard" /tr "pythonw \"%SCRIPT_DIR%server.py\"" /sc onlogon /delay 0000:05 /rl highest /f
-schtasks /create /tn "XeneonTunnel" /tr "pythonw \"%SCRIPT_DIR%tunnel.py\"" /sc onlogon /delay 0000:10 /rl highest /f
+schtasks /create /tn "XeneonDashboard" /tr "pythonw \"%SCRIPT_DIR%server.py\""    /sc onlogon /delay 0000:05 /rl highest /f
+schtasks /create /tn "XeneonOSCBridge" /tr "pythonw \"%SCRIPT_DIR%osc_bridge.py\"" /sc onlogon /delay 0000:07 /rl highest /f
+schtasks /create /tn "XeneonTunnel"    /tr "pythonw \"%SCRIPT_DIR%tunnel.py\""     /sc onlogon /delay 0000:10 /rl highest /f
 
 echo.
 echo ==========================================

@@ -159,6 +159,21 @@ input[type="range"]::-webkit-slider-thumb {
 .nav { display: flex; justify-content: center; gap: 12px; height: 26px; flex-shrink: 0; margin-top: 8px; align-items: center; }
 .dot { width: 10px; height: 10px; border-radius: 50%; background: rgba(255,255,255,0.22); transition: all var(--t); }
 .dot.active { width: 32px; border-radius: 5px; background: var(--accent); }
+
+/* Bottom nav bar */
+.nav-bar {
+  position: fixed; bottom: 0; left: 0; right: 0; height: 52px;
+  display: flex; justify-content: center; align-items: center; gap: 32px;
+  background: rgba(7,7,15,0.92); border-top: 1px solid var(--border);
+  backdrop-filter: blur(10px); z-index: 999;
+}
+.nav-btn {
+  padding: 10px 36px; border-radius: 50px; font-size: 22px; font-weight: 600;
+  color: var(--text-dim); border: none; background: none; transition: all 0.15s ease;
+  text-decoration: none; display: flex; align-items: center; gap: 10px; cursor: pointer;
+}
+.nav-btn:hover { color: var(--text); background: rgba(255,255,255,0.09); }
+.nav-btn.active { color: var(--accent); background: rgba(255,255,255,0.09); }
 </style>
 </head>
 <body>
@@ -333,6 +348,14 @@ input[type="range"]::-webkit-slider-thumb {
   </div>
 
 </div><!-- /track -->
+
+<!-- BOTTOM NAV -->
+<nav class="nav-bar">
+  <a class="nav-btn active" href="lights.html">💡 Lights</a>
+  <a class="nav-btn" href="mixer.html">🎚 Mixer</a>
+  <a class="nav-btn" href="tidal.html">🎵 Tidal</a>
+  <a class="nav-btn" href="youtube.html">▶ YouTube</a>
+</nav>
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────

@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>YouTube</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+button, input, .nav-btn, .thumb-card, .control-btn { touch-action: manipulation; cursor: pointer; }
+
+:root {
+  --bg: #07070f;
+  --surface: rgba(255,255,255,0.06);
+  --surface2: rgba(255,255,255,0.09);
+  --border: rgba(255,255,255,0.10);
+  --text: #f0f0f8;
+  --text-dim: rgba(240,240,248,0.45);
+  --text-mid: rgba(240,240,248,0.70);
+  --accent: #ff4444;
+  --glow: rgba(255,68,68,0.2);
+  --nav-h: 52px;
+  --sidebar-w: 640px;
+  --t: 0.15s ease;
+}
+
+html, body {
+  width: 2536px; height: 696px;
+  overflow: hidden;
+  background: var(--bg);
+  font-family: -apple-system, 'Segoe UI', system-ui, sans-serif;
+  color: var(--text);
+  user-select: none;
+}
+
+/* ── MAIN LAYOUT ── */
+.shell {
+  width: 2536px;
+  height: calc(696px - var(--nav-h));
+  display: flex;
+}
+
+/* ── PLAYER SIDE ── */
+.player-side {
+  flex: 1;
+  display: flex; flex-direction: column;
+  background: #000;
+  position: relative;
+}
+
+#yt-player {
+  width: 100%; flex: 1;
+  border: none; display: block;
+}
+
+/* Player controls bar */
+.player-controls {
+  height: 84px; flex-shrink: 0;
+  display: flex; align-items: center; gap: 20px;
+  padding: 0 28px;
+  background: rgba(0,0,0,0.85);
+  border-top: 1px solid var(--border);
+}
+
+.control-btn {
+  width: 68px; height: 68px; border-radius: 50%;
+  border: 1.5px solid var(--border); background: var(--surface);
+  color: var(--text); font-size: 30px;
+  display: flex; align-items: center; justify-content: center;
+  transition: all var(--t); flex-shrink: 0;
+}
+.control-btn:active { background: var(--surface2); transform: scale(0.92); }
+.control-btn.accent { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 20px var(--glow); }
+
+.progress-wrap {
+  flex: 1; display: flex; flex-direction: column; gap: 8px;
+}
+.progress-bar-bg {
+  width: 100%; height: 12px; border-radius: 6px;
+  background: var(--surface2); position: relative; overflow: hidden;
+}
+.progress-bar-fill {
+  height: 100%; border-radius: 6px;
+  background: var(--accent);
+  width: 0%; transition: width 0.5s linear;
+}
+.progress-bar-bg { cursor: pointer; }
+
+.time-row {
+  display: flex; justify-content: space-between;
+  font-size: 20px; color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.now-playing {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.np-title {
+  font-size: 22px; font-weight: 600; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; max-width: 500px;
+}
+.np-channel { font-size: 18px; color: var(--text-dim); }
+
+.vol-wrap { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+.vol-icon { font-size: 26px; }
+input[type="range"].vol-slider {
+  -webkit-appearance: none; appearance: none;
+  width: 180px; height: 10px; border-radius: 5px; outline: none;
+  background: linear-gradient(to right, var(--accent) 100%, var(--surface2) 100%);
+  touch-action: none;
+}
+input[type="range"].vol-slider::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 36px; height: 36px; border-radius: 50%;
+  background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+}
+
+/* ── SIDEBAR ── */
+.sidebar {
+  width: var(--sidebar-w); flex-shrink: 0;
+  display: flex; flex-direction: column;
+  border-left: 1px solid var(--border);
+  background: rgba(0,0,0,0.4);
+}
+
+/* Search bar */
+.search-bar {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 20px; border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.search-bar input {
+  flex: 1; height: 56px; border-radius: 12px;
+  background: var(--surface2); border: 1.5px solid var(--border);
+  color: var(--text); font-size: 26px; padding: 0 20px;
+  outline: none; caret-color: var(--accent);
+}
+.search-bar input::placeholder { color: var(--text-dim); }
+.search-bar input:focus { border-color: var(--accent); }
+.search-btn {
+  width: 64px; height: 56px; border-radius: 12px;
+  background: var(--accent); border: none; font-size: 28px;
+  display: flex; align-items: center; justify-content: center;
+  transition: opacity var(--t);
+}
+.search-btn:active { opacity: 0.8; }
+
+/* Results / queue list */
+.results-list {
+  flex: 1; overflow-y: auto; overflow-x: hidden;
+  scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+}
+.results-list::-webkit-scrollbar { width: 6px; }
+.results-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+.section-label {
+  font-size: 18px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase;
+  color: var(--text-dim); padding: 14px 20px 8px;
+}
+
+.thumb-card {
+  display: flex; align-items: center; gap: 16px;
+  padding: 12px 20px; transition: background var(--t); border-radius: 0;
+}
+.thumb-card:hover, .thumb-card.active { background: var(--surface2); }
+.thumb-card.active .tc-title { color: var(--accent); }
+
+.tc-thumb {
+  width: 100px; height: 56px; border-radius: 8px;
+  background: var(--surface); object-fit: cover; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 28px; overflow: hidden;
+}
+.tc-thumb img { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; }
+
+.tc-info { flex: 1; min-width: 0; }
+.tc-title {
+  font-size: 22px; font-weight: 600; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.tc-meta { font-size: 18px; color: var(--text-dim); margin-top: 2px; }
+
+.tc-play {
+  width: 48px; height: 48px; border-radius: 50%;
+  border: 1.5px solid var(--border); background: var(--surface);
+  color: var(--text); font-size: 20px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  transition: all var(--t);
+}
+.tc-play:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+/* Empty state */
+.empty-state {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 16px; padding: 48px 24px; color: var(--text-dim); text-align: center;
+}
+.empty-state .es-icon { font-size: 56px; }
+.empty-state .es-text { font-size: 24px; }
+
+/* ── BOTTOM NAV ── */
+.nav-bar {
+  position: fixed; bottom: 0; left: 0; right: 0; height: var(--nav-h);
+  display: flex; justify-content: center; align-items: center; gap: 32px;
+  background: rgba(7,7,15,0.96); border-top: 1px solid var(--border);
+  backdrop-filter: blur(10px); z-index: 100;
+}
+.nav-btn {
+  padding: 10px 36px; border-radius: 50px; font-size: 22px; font-weight: 600;
+  color: var(--text-dim); border: none; background: none; transition: all var(--t);
+  text-decoration: none; display: flex; align-items: center; gap: 10px;
+}
+.nav-btn:hover { color: var(--text); background: var(--surface2); }
+.nav-btn.active { color: var(--accent); background: var(--surface2); }
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- ══ PLAYER SIDE ══ -->
+  <div class="player-side">
+    <div id="yt-player"></div>
+
+    <div class="player-controls">
+      <!-- Skip back 10s -->
+      <button class="control-btn" id="btn-back" title="Back 10s">⏮ 10</button>
+      <!-- Play/Pause -->
+      <button class="control-btn accent" id="btn-play" title="Play/Pause">▶</button>
+      <!-- Skip forward 10s -->
+      <button class="control-btn" id="btn-fwd" title="Forward 10s">10 ⏭</button>
+
+      <!-- Progress -->
+      <div class="progress-wrap">
+        <div class="progress-bar-bg" id="prog-bg">
+          <div class="progress-bar-fill" id="prog-fill"></div>
+        </div>
+        <div class="time-row">
+          <span id="time-cur">0:00</span>
+          <span id="time-dur">0:00</span>
+        </div>
+      </div>
+
+      <!-- Now playing info -->
+      <div class="now-playing">
+        <div class="np-title" id="np-title">Nothing playing</div>
+        <div class="np-channel" id="np-channel">Search or pick a video →</div>
+      </div>
+
+      <!-- Volume -->
+      <div class="vol-wrap">
+        <span class="vol-icon">🔊</span>
+        <input type="range" class="vol-slider" id="vol-slider" min="0" max="100" value="80">
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ SIDEBAR ══ -->
+  <div class="sidebar">
+    <div class="search-bar">
+      <input type="text" id="search-input" placeholder="Search YouTube…" autocomplete="off">
+      <button class="search-btn" id="search-btn">🔍</button>
+    </div>
+    <div class="results-list" id="results-list">
+      <div class="section-label">Suggestions</div>
+      <!-- Seeded with music-friendly suggestions -->
+      <div id="suggestions"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- BOTTOM NAV -->
+<nav class="nav-bar">
+  <a class="nav-btn" href="lights.html">💡 Lights</a>
+  <a class="nav-btn" href="mixer.html">🎚 Mixer</a>
+  <a class="nav-btn" href="tidal.html">🎵 Tidal</a>
+  <a class="nav-btn active" href="youtube.html">▶ YouTube</a>
+</nav>
+
+<!-- YouTube IFrame API -->
+<script src="https://www.youtube.com/iframe_api"></script>
+<script>
+// ── CONFIG ───────────────────────────────────────────────────
+// YouTube Data API v3 key (optional — search works via iframe_api without it,
+// but with a key you get rich thumbnails + metadata from the search API)
+// Leave empty to use the simple no-API search approach (opens YouTube search results)
+const YT_API_KEY = '';
+
+// Seeded music suggestions (video IDs + titles)
+const SEEDS = [
+  { id: 'jfKfPfyJRdk', title: 'lofi hip hop radio 📚',       channel: 'Lofi Girl',   thumb: 'https://img.youtube.com/vi/jfKfPfyJRdk/mqdefault.jpg' },
+  { id: '5qap5aO4i9A', title: 'lofi hip hop radio – beats to relax', channel: 'Lofi Girl', thumb: 'https://img.youtube.com/vi/5qap5aO4i9A/mqdefault.jpg' },
+  { id: 'DWcJFNfaw9c', title: 'Deep Focus Music',             channel: 'Yellow Brick Cinema', thumb: 'https://img.youtube.com/vi/DWcJFNfaw9c/mqdefault.jpg' },
+  { id: 'n61ULEU7CO0', title: 'Synthwave Radio 🌃',           channel: 'Nightwave Plaza', thumb: 'https://img.youtube.com/vi/n61ULEU7CO0/mqdefault.jpg' },
+  { id: 'MVPTGNGiI-4', title: 'Chillhop Radio 🎧',           channel: 'Chillhop Music', thumb: 'https://img.youtube.com/vi/MVPTGNGiI-4/mqdefault.jpg' },
+  { id: 'Na0w3Mz46GA', title: 'Jazz & Bossa Nova Radio',     channel: 'Relaxing Cafe Music', thumb: 'https://img.youtube.com/vi/Na0w3Mz46GA/mqdefault.jpg' },
+];
+
+// ── YT PLAYER ────────────────────────────────────────────────
+let player, playing = false, currentId = null, progressTimer = null;
+
+function onYouTubeIframeAPIReady() {
+  // Calculate available player height
+  const ph = 696 - 52 - 84; // total - nav - controls
+  const pw = 2536 - 640;    // total - sidebar
+
+  player = new YT.Player('yt-player', {
+    height: ph,
+    width:  pw,
+    videoId: '',
+    playerVars: {
+      autoplay: 0,
+      controls: 0,       // hide YouTube controls — we use our own
+      rel: 0,
+      modestbranding: 1,
+      iv_load_policy: 3,
+      cc_load_policy: 0,
+      fs: 0,
+      playsinline: 1,
+    },
+    events: {
+      onReady:       onPlayerReady,
+      onStateChange: onPlayerStateChange,
+    }
+  });
+}
+
+function onPlayerReady(e) {
+  e.target.setVolume(80);
+  renderSuggestions(SEEDS);
+}
+
+function onPlayerStateChange(e) {
+  const s = e.data;
+  playing = (s === YT.PlayerState.PLAYING);
+  document.getElementById('btn-play').textContent = playing ? '⏸' : '▶';
+  document.getElementById('btn-play').classList.toggle('accent', playing);
+
+  if (playing) {
+    const data = player.getVideoData();
+    document.getElementById('np-title').textContent   = data.title   || '—';
+    document.getElementById('np-channel').textContent = data.author  || '—';
+    startProgress();
+  } else {
+    clearInterval(progressTimer);
+  }
+}
+
+// ── CONTROLS ─────────────────────────────────────────────────
+document.getElementById('btn-play').addEventListener('pointerdown', () => {
+  if (!player) return;
+  playing ? player.pauseVideo() : player.playVideo();
+});
+document.getElementById('btn-back').addEventListener('pointerdown', () => {
+  if (!player) return;
+  player.seekTo(Math.max(0, player.getCurrentTime() - 10), true);
+});
+document.getElementById('btn-fwd').addEventListener('pointerdown', () => {
+  if (!player) return;
+  player.seekTo(player.getCurrentTime() + 10, true);
+});
+
+// Volume
+const volSlider = document.getElementById('vol-slider');
+volSlider.addEventListener('input', () => {
+  if (player) player.setVolume(parseInt(volSlider.value));
+  volSlider.style.background =
+    `linear-gradient(to right, var(--accent) ${volSlider.value}%, var(--surface2) ${volSlider.value}%)`;
+});
+
+// Progress bar click-to-seek
+document.getElementById('prog-bg').addEventListener('pointerdown', e => {
+  if (!player) return;
+  const rect = e.currentTarget.getBoundingClientRect();
+  const pct  = (e.clientX - rect.left) / rect.width;
+  player.seekTo(pct * player.getDuration(), true);
+});
+
+// ── PROGRESS ─────────────────────────────────────────────────
+function startProgress() {
+  clearInterval(progressTimer);
+  progressTimer = setInterval(() => {
+    if (!player || !playing) return;
+    const cur = player.getCurrentTime() || 0;
+    const dur = player.getDuration()    || 1;
+    document.getElementById('prog-fill').style.width = (cur/dur*100) + '%';
+    document.getElementById('time-cur').textContent  = fmt(cur);
+    document.getElementById('time-dur').textContent  = fmt(dur);
+  }, 500);
+}
+
+function fmt(s) {
+  const m = Math.floor(s/60), sec = Math.floor(s%60);
+  return `${m}:${String(sec).padStart(2,'0')}`;
+}
+
+// ── PLAY VIDEO ───────────────────────────────────────────────
+function playVideo(id, title, channel) {
+  currentId = id;
+  player.loadVideoById(id);
+  document.getElementById('np-title').textContent   = title;
+  document.getElementById('np-channel').textContent = channel;
+  document.querySelectorAll('.thumb-card').forEach(c => c.classList.toggle('active', c.dataset.id === id));
+}
+
+// ── SUGGESTIONS ──────────────────────────────────────────────
+function renderSuggestions(items, label) {
+  const list = document.getElementById('suggestions');
+  list.innerHTML = '';
+  items.forEach(item => {
+    const card = document.createElement('div');
+    card.className = 'thumb-card' + (item.id === currentId ? ' active' : '');
+    card.dataset.id = item.id;
+    card.innerHTML = `
+      <div class="tc-thumb"><img src="${item.thumb}" alt="" loading="lazy" onerror="this.parentElement.textContent='▶'"></div>
+      <div class="tc-info">
+        <div class="tc-title">${item.title}</div>
+        <div class="tc-meta">${item.channel}</div>
+      </div>
+      <button class="tc-play" title="Play">▶</button>
+    `;
+    card.addEventListener('pointerdown', () => playVideo(item.id, item.title, item.channel));
+    list.appendChild(card);
+  });
+}
+
+// ── SEARCH ───────────────────────────────────────────────────
+async function doSearch() {
+  const q = document.getElementById('search-input').value.trim();
+  if (!q) return;
+
+  const list  = document.getElementById('results-list');
+  const label = list.querySelector('.section-label');
+  const sugg  = document.getElementById('suggestions');
+
+  if (YT_API_KEY) {
+    // Full search via YouTube Data API v3
+    sugg.innerHTML = '<div class="empty-state"><div class="es-icon">⏳</div><div class="es-text">Searching…</div></div>';
+    if (label) label.textContent = `Results for "${q}"`;
+    try {
+      const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=10&q=${encodeURIComponent(q)}&key=${YT_API_KEY}`;
+      const res  = await fetch(url);
+      const data = await res.json();
+      if (!data.items || data.items.length === 0) throw new Error('no results');
+      const items = data.items.map(item => ({
+        id:      item.id.videoId,
+        title:   item.snippet.title,
+        channel: item.snippet.channelTitle,
+        thumb:   item.snippet.thumbnails.medium.url,
+      }));
+      renderSuggestions(items);
+    } catch(e) {
+      sugg.innerHTML = `<div class="empty-state"><div class="es-icon">⚠️</div><div class="es-text">Search failed.<br>Check your API key.</div></div>`;
+    }
+  } else {
+    // No API key — fall back: open YouTube search in the player iframe area
+    // by loading a search results page video. We just show a message + link.
+    if (label) label.textContent = `Searching: "${q}"`;
+    sugg.innerHTML = `
+      <div class="empty-state">
+        <div class="es-icon">🔍</div>
+        <div class="es-text" style="font-size:20px">
+          No API key configured.<br><br>
+          Add a YouTube Data API v3 key in <code>youtube.html</code><br>
+          to enable live search results here.<br><br>
+          <span style="color:var(--text-dim)">Or paste a video ID / URL below:</span>
+        </div>
+      </div>
+    `;
+    // Allow pasting a video ID directly
+    const input = document.getElementById('search-input');
+    const videoId = extractVideoId(q);
+    if (videoId) {
+      playVideo(videoId, q, 'Direct link');
+    }
+  }
+}
+
+function extractVideoId(str) {
+  // Handles: full URL, youtu.be/ID, or bare 11-char ID
+  const patterns = [
+    /[?&]v=([a-zA-Z0-9_-]{11})/,
+    /youtu\.be\/([a-zA-Z0-9_-]{11})/,
+    /^([a-zA-Z0-9_-]{11})$/
+  ];
+  for (const p of patterns) {
+    const m = str.match(p);
+    if (m) return m[1];
+  }
+  return null;
+}
+
+document.getElementById('search-btn').addEventListener('pointerdown', doSearch);
+document.getElementById('search-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doSearch();
+});
+</script>
+</body>
+</html>

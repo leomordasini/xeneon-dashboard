@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Mixer — TotalMixFX</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+button, .fader-wrap, .mute-btn, .nav-btn { touch-action: manipulation; cursor: pointer; }
+
+:root {
+  --bg: #07070f;
+  --surface: rgba(255,255,255,0.06);
+  --surface2: rgba(255,255,255,0.09);
+  --border: rgba(255,255,255,0.10);
+  --text: #f0f0f8;
+  --text-dim: rgba(240,240,248,0.45);
+  --text-mid: rgba(240,240,248,0.70);
+  --accent: #3cc8ff;
+  --glow: rgba(60,200,255,0.22);
+  --mute: #f87171;
+  --radius: 18px;
+  --radius-sm: 10px;
+  --t: 0.15s ease;
+}
+
+html, body {
+  width: 2536px; height: 696px;
+  overflow: hidden;
+  background: var(--bg);
+  font-family: -apple-system, 'Segoe UI', system-ui, sans-serif;
+  color: var(--text);
+  user-select: none;
+}
+
+.bg-glow {
+  position: fixed; inset: 0; pointer-events: none;
+  background: radial-gradient(ellipse 1000px 500px at 50% 50%, var(--glow) 0%, transparent 70%);
+  opacity: 0.5;
+}
+
+/* ── LAYOUT ── */
+.shell {
+  width: 2536px; height: 696px;
+  display: flex; flex-direction: column;
+  padding: 20px 32px 0;
+}
+
+/* ── HEADER ── */
+.header {
+  display: flex; align-items: center; justify-content: space-between;
+  height: 72px; flex-shrink: 0;
+}
+.title { font-size: 38px; font-weight: 700; letter-spacing: -0.02em; }
+.title span { color: var(--accent); }
+
+.bank-tabs { display: flex; gap: 6px; background: var(--surface); border-radius: 14px; padding: 5px; }
+.bank-tab {
+  padding: 12px 48px; border-radius: 10px; font-size: 26px; font-weight: 600;
+  color: var(--text-dim); border: none; background: none; transition: all var(--t);
+}
+.bank-tab.active { background: var(--accent); color: #000; box-shadow: 0 0 20px var(--glow); }
+
+.status-pill {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--surface); border: 1.5px solid var(--border);
+  border-radius: 50px; padding: 12px 28px; font-size: 24px; color: var(--text-dim);
+}
+.dot-status { width: 12px; height: 12px; border-radius: 50%; background: #555; flex-shrink: 0; transition: all 0.3s; }
+.dot-status.on  { background: #4ade80; box-shadow: 0 0 8px rgba(74,222,128,0.7); }
+.dot-status.err { background: #f87171; box-shadow: 0 0 8px rgba(248,113,113,0.7); }
+
+/* ── FADER STRIP GRID ── */
+.strips-wrap {
+  flex: 1; display: flex; align-items: flex-end;
+  gap: 0; padding-bottom: 12px; overflow: hidden; min-height: 0;
+}
+
+.strip {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  gap: 10px; padding: 0 10px; position: relative;
+}
+
+.strip + .strip { border-left: 1px solid var(--border); }
+
+/* channel label */
+.ch-label {
+  font-size: 20px; font-weight: 600; color: var(--text-dim);
+  text-align: center; line-height: 1.2; height: 44px;
+  display: flex; align-items: center; justify-content: center;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* db readout */
+.db-val {
+  font-size: 28px; font-weight: 700; font-variant-numeric: tabular-nums;
+  color: var(--text); min-width: 80px; text-align: center;
+}
+
+/* vertical fader */
+.fader-wrap {
+  width: 64px; height: 340px; position: relative;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.fader-track {
+  width: 8px; height: 100%; border-radius: 4px;
+  background: var(--surface2); border: 1px solid var(--border);
+  position: absolute; left: 50%; transform: translateX(-50%);
+}
+.fader-fill {
+  position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);
+  width: 8px; border-radius: 4px;
+  background: linear-gradient(to top, var(--accent), rgba(60,200,255,0.5));
+  transition: height 0.1s;
+}
+.fader-thumb {
+  width: 56px; height: 28px; border-radius: 8px;
+  background: #fff; box-shadow: 0 2px 12px rgba(0,0,0,0.6), 0 0 0 3px rgba(255,255,255,0.12);
+  position: absolute; left: 50%; transform: translateX(-50%);
+  cursor: grab;
+}
+.fader-thumb:active { cursor: grabbing; }
+
+/* unity line */
+.unity-line {
+  position: absolute; left: 0; right: 0; height: 1px;
+  background: rgba(255,255,255,0.18);
+  pointer-events: none;
+}
+.unity-label {
+  position: absolute; right: -28px; font-size: 16px; color: var(--text-dim);
+  pointer-events: none; transform: translateY(-50%);
+}
+
+/* mute button */
+.mute-btn {
+  width: 100%; max-width: 110px; height: 50px; border-radius: var(--radius-sm);
+  border: 1.5px solid var(--border); background: var(--surface);
+  color: var(--text-dim); font-size: 20px; font-weight: 700; letter-spacing: 0.05em;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  transition: all var(--t);
+}
+.mute-btn.muted { background: var(--mute); border-color: var(--mute); color: #fff; box-shadow: 0 0 16px rgba(248,113,113,0.4); }
+.mute-btn.pressing { transform: scale(0.94); opacity: 0.8; }
+
+/* ── MAIN OUTPUT BAR ── */
+.main-bar {
+  flex-shrink: 0; height: 72px;
+  display: flex; align-items: center; gap: 24px;
+  padding: 0 16px;
+  border-top: 1px solid var(--border);
+  background: rgba(0,0,0,0.3);
+  margin: 0 -32px;
+  padding: 0 48px;
+}
+.main-label { font-size: 26px; font-weight: 700; color: var(--text-mid); white-space: nowrap; }
+.main-slider-wrap { flex: 1; display: flex; align-items: center; gap: 20px; }
+.main-val { font-size: 28px; font-weight: 700; font-variant-numeric: tabular-nums; min-width: 72px; text-align: right; }
+
+input[type="range"].main-slider {
+  -webkit-appearance: none; appearance: none;
+  flex: 1; height: 16px; border-radius: 8px; outline: none;
+  background: linear-gradient(to right, var(--accent) 75%, var(--surface2) 75%);
+  touch-action: none;
+}
+input[type="range"].main-slider::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 44px; height: 44px; border-radius: 50%;
+  background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+}
+
+/* ── BOTTOM NAV ── */
+.nav-bar {
+  position: fixed; bottom: 0; left: 0; right: 0; height: 52px;
+  display: flex; justify-content: center; align-items: center; gap: 32px;
+  background: rgba(7,7,15,0.92); border-top: 1px solid var(--border);
+  backdrop-filter: blur(10px);
+}
+.nav-btn {
+  padding: 10px 36px; border-radius: 50px; font-size: 22px; font-weight: 600;
+  color: var(--text-dim); border: none; background: none; transition: all var(--t);
+  text-decoration: none; display: flex; align-items: center; gap: 10px;
+}
+.nav-btn:hover, .nav-btn.active { color: var(--text); background: var(--surface2); }
+.nav-btn.active { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="bg-glow"></div>
+
+<div class="shell">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="title">Total<span>Mix</span> FX</div>
+
+    <div class="bank-tabs">
+      <button class="bank-tab active" id="tab-input"    onclick="setBank('input')">Inputs</button>
+      <button class="bank-tab"        id="tab-playback" onclick="setBank('playback')">Playback</button>
+      <button class="bank-tab"        id="tab-output"   onclick="setBank('output')">Outputs</button>
+    </div>
+
+    <div class="status-pill">
+      <div class="dot-status" id="conn-dot"></div>
+      <span id="conn-label">Connecting…</span>
+    </div>
+  </div>
+
+  <!-- FADER STRIPS (8 channels) -->
+  <div class="strips-wrap" id="strips"></div>
+
+  <!-- MAIN OUTPUT BAR -->
+  <div class="main-bar">
+    <div class="main-label">⊕ MAIN OUT</div>
+    <div class="main-slider-wrap">
+      <input type="range" class="main-slider" id="main-slider" min="0" max="100" value="75">
+      <div class="main-val" id="main-val">0 dB</div>
+    </div>
+    <button class="mute-btn" id="main-mute" onclick="toggleMainMute()" style="width:140px;">
+      <span>🔊</span><span id="main-mute-lbl">MUTE</span>
+    </button>
+  </div>
+
+</div>
+
+<!-- BOTTOM NAV -->
+<nav class="nav-bar">
+  <a class="nav-btn" href="lights.html">💡 Lights</a>
+  <a class="nav-btn active" href="mixer.html">🎚 Mixer</a>
+  <a class="nav-btn" href="tidal.html">🎵 Tidal</a>
+  <a class="nav-btn" href="youtube.html">▶ YouTube</a>
+</nav>
+
+<script>
+// ── CONFIG ──────────────────────────────────────────────────
+const CHANNEL_NAMES = {
+  input:    ['Mic/Inst L','Mic/Inst R','Line 3','Line 4','SPDIF L','SPDIF R','ADAT 1','ADAT 2'],
+  playback: ['DAW 1','DAW 2','DAW 3','DAW 4','DAW 5','DAW 6','DAW 7','DAW 8'],
+  output:   ['Phones L','Phones R','Out 3','Out 4','SPDIF L','SPDIF R','ADAT 1','ADAT 2'],
+};
+
+// fader value (0-1) → dB string
+function valToDb(v) {
+  if (v <= 0)    return '-∞';
+  if (v >= 1.0)  return '+6 dB';
+  if (v >= 0.75) return '0 dB';
+  const db = ((v - 0.75) / 0.25) * 60; // approx
+  return `${Math.round(db)} dB`;
+}
+
+// ── STATE ────────────────────────────────────────────────────
+let currentBank = 'input';
+let mixerState  = null;
+let mainMuted   = false;
+let pollTimer   = null;
+
+// ── STRIPS ──────────────────────────────────────────────────
+function buildStrips() {
+  const container = document.getElementById('strips');
+  container.innerHTML = '';
+  const names = CHANNEL_NAMES[currentBank];
+  const bankData = mixerState ? mixerState[currentBank === 'input' ? 'inputs' : currentBank === 'playback' ? 'playback' : 'outputs'] : null;
+
+  for (let i = 0; i < 8; i++) {
+    const fval  = bankData ? bankData[i].fader : 0.75;
+    const muted = bankData ? bankData[i].mute  : false;
+    const name  = names[i];
+    const pct   = fval * 100;
+    const unityPct = 75; // unity = 75% of range
+    const unityBottom = unityPct + '%';
+
+    const strip = document.createElement('div');
+    strip.className = 'strip';
+    strip.id = `strip-${i}`;
+    strip.innerHTML = `
+      <div class="ch-label">${name}</div>
+      <div class="db-val" id="db-${i}">${valToDb(fval)}</div>
+      <div class="fader-wrap" id="fwrap-${i}">
+        <div class="fader-track"></div>
+        <div class="fader-fill" id="ffill-${i}" style="height:${pct}%"></div>
+        <div class="unity-line" style="bottom:${unityPct}%"></div>
+        <div class="unity-label" style="bottom:${unityPct}%">0</div>
+        <div class="fader-thumb" id="fthumb-${i}" style="bottom:calc(${pct}% - 14px)"></div>
+      </div>
+      <button class="mute-btn${muted?' muted':''}" id="mute-${i}"
+              data-ch="${i}" data-muted="${muted}">
+        <span>${muted?'🔇':'🔊'}</span>
+      </button>
+    `;
+    container.appendChild(strip);
+
+    // Attach fader drag
+    initFader(i, fval);
+
+    // Mute button
+    strip.querySelector(`#mute-${i}`).addEventListener('pointerdown', e => {
+      e.stopPropagation();
+      const btn   = e.currentTarget;
+      const ch    = parseInt(btn.dataset.ch);
+      const muted = btn.dataset.muted === 'true';
+      toggleMute(ch, !muted);
+    });
+  }
+}
+
+function initFader(ch, initialVal) {
+  const wrap  = document.getElementById(`fwrap-${ch}`);
+  const thumb = document.getElementById(`fthumb-${ch}`);
+  const fill  = document.getElementById(`ffill-${ch}`);
+  const dbEl  = document.getElementById(`db-${ch}`);
+  let active = false, startY = 0, startVal = initialVal;
+
+  function setFaderVisual(v) {
+    const pct = Math.max(0, Math.min(1, v)) * 100;
+    fill.style.height  = pct + '%';
+    thumb.style.bottom = `calc(${pct}% - 14px)`;
+    dbEl.textContent   = valToDb(v);
+  }
+
+  thumb.addEventListener('pointerdown', e => {
+    active = true; startY = e.clientY; startVal = parseFloat(fill.style.height) / 100;
+    thumb.setPointerCapture(e.pointerId);
+    e.stopPropagation();
+  });
+
+  thumb.addEventListener('pointermove', e => {
+    if (!active) return;
+    const dy  = startY - e.clientY;
+    const range = wrap.getBoundingClientRect().height;
+    const delta = dy / range;
+    const newVal = Math.max(0, Math.min(1, startVal + delta));
+    setFaderVisual(newVal);
+    e.stopPropagation();
+  });
+
+  thumb.addEventListener('pointerup', e => {
+    if (!active) return; active = false;
+    const dy  = startY - e.clientY;
+    const range = wrap.getBoundingClientRect().height;
+    const delta = dy / range;
+    const newVal = Math.max(0, Math.min(1, startVal + delta));
+    setFaderVisual(newVal);
+    sendFader(ch, newVal);
+    e.stopPropagation();
+  });
+
+  // tap anywhere on track to jump fader
+  wrap.addEventListener('pointerdown', e => {
+    if (e.target === thumb) return;
+    const rect = wrap.getBoundingClientRect();
+    const newVal = Math.max(0, Math.min(1, 1 - (e.clientY - rect.top) / rect.height));
+    setFaderVisual(newVal);
+    sendFader(ch, newVal);
+    e.stopPropagation();
+  });
+}
+
+// ── BANK SWITCH ─────────────────────────────────────────────
+function setBank(bank) {
+  currentBank = bank;
+  ['input','playback','output'].forEach(b => {
+    document.getElementById(`tab-${b}`).classList.toggle('active', b === bank);
+  });
+  buildStrips();
+}
+
+// ── MUTE ────────────────────────────────────────────────────
+function toggleMute(ch, muted) {
+  const btn  = document.getElementById(`mute-${ch}`);
+  btn.dataset.muted = String(muted);
+  btn.classList.toggle('muted', muted);
+  btn.innerHTML = `<span>${muted?'🔇':'🔊'}</span>`;
+  btn.classList.add('pressing');
+  setTimeout(() => btn.classList.remove('pressing'), 150);
+  fetch('/mixer/action', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ action:'mute', bank: currentBank, channel: ch, muted })
+  }).catch(() => {});
+}
+
+function toggleMainMute() {
+  mainMuted = !mainMuted;
+  const btn = document.getElementById('main-mute');
+  const lbl = document.getElementById('main-mute-lbl');
+  btn.classList.toggle('muted', mainMuted);
+  btn.querySelector('span').textContent = mainMuted ? '🔇' : '🔊';
+  lbl.textContent = mainMuted ? 'UNMUTE' : 'MUTE';
+}
+
+// ── FADER SEND ───────────────────────────────────────────────
+function sendFader(ch, val) {
+  fetch('/mixer/action', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ action:'fader', bank: currentBank, channel: ch, value: val })
+  }).catch(() => {});
+}
+
+// ── MAIN SLIDER ─────────────────────────────────────────────
+const mainSlider = document.getElementById('main-slider');
+const mainVal    = document.getElementById('main-val');
+
+mainSlider.addEventListener('input', () => {
+  const v = mainSlider.value / 100;
+  mainVal.textContent = valToDb(v);
+  mainSlider.style.background =
+    `linear-gradient(to right, var(--accent) ${mainSlider.value}%, var(--surface2) ${mainSlider.value}%)`;
+});
+mainSlider.addEventListener('change', () => {
+  const v = mainSlider.value / 100;
+  fetch('/mixer/action', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ action:'main', value: v })
+  }).catch(() => {});
+});
+
+// ── POLL STATE ───────────────────────────────────────────────
+async function pollState() {
+  try {
+    const res = await fetch('/mixer/state');
+    if (!res.ok) throw new Error();
+    mixerState = await res.json();
+
+    const dot   = document.getElementById('conn-dot');
+    const label = document.getElementById('conn-label');
+    if (mixerState.connected) {
+      dot.className   = 'dot-status on';
+      label.textContent = 'TotalMixFX Connected';
+    } else {
+      dot.className   = 'dot-status err';
+      label.textContent = 'Waiting for TotalMixFX…';
+    }
+
+    // Update visuals for current bank without full rebuild
+    const bankData = currentBank === 'input' ? mixerState.inputs
+                   : currentBank === 'playback' ? mixerState.playback
+                   : mixerState.outputs;
+    bankData.forEach((ch, i) => {
+      const fill  = document.getElementById(`ffill-${i}`);
+      const thumb = document.getElementById(`fthumb-${i}`);
+      const dbEl  = document.getElementById(`db-${i}`);
+      const mBtn  = document.getElementById(`mute-${i}`);
+      if (!fill) return;
+      const pct = ch.fader * 100;
+      fill.style.height  = pct + '%';
+      thumb.style.bottom = `calc(${pct}% - 14px)`;
+      if (dbEl)  dbEl.textContent = valToDb(ch.fader);
+      if (mBtn) {
+        mBtn.dataset.muted = String(ch.mute);
+        mBtn.classList.toggle('muted', ch.mute);
+        mBtn.querySelector('span').textContent = ch.mute ? '🔇' : '🔊';
+      }
+    });
+
+    // main
+    if (mixerState.main_out !== undefined) {
+      const mv = Math.round(mixerState.main_out * 100);
+      mainSlider.value = mv;
+      mainVal.textContent = valToDb(mixerState.main_out);
+      mainSlider.style.background =
+        `linear-gradient(to right, var(--accent) ${mv}%, var(--surface2) ${mv}%)`;
+    }
+
+  } catch(e) {
+    document.getElementById('conn-dot').className   = 'dot-status err';
+    document.getElementById('conn-label').textContent = 'OSC Bridge offline';
+  }
+}
+
+// ── INIT ────────────────────────────────────────────────────
+buildStrips();
+pollState();
+setInterval(pollState, 2000);
+</script>
+</body>
+</html>
