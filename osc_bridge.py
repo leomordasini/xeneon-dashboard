@@ -294,27 +294,27 @@ def wasapi_meter_thread():
     class IMMDevice(IUnknown):
         _iid_ = GUID('{D666063F-1587-4E43-81F1-B948E807363F}')
         _methods_ = [
+            # Only define Activate (first method) — it's all we need
             COMMETHOD([], HRESULT, 'Activate',
-                      (['in'], GUID, 'iid'),
-                      (['in'], c_uint, 'dwClsCtx'),
-                      (['in'], POINTER(c_uint), 'pActivationParams'),
-                      (['out'], POINTER(POINTER(IUnknown)), 'ppInterface')),
-            COMMETHOD([], HRESULT, 'OpenPropertyStore', (['in'], c_uint, 'stgmAccess'), ['out']),
-            COMMETHOD([], HRESULT, 'GetId', (['out'], POINTER(c_wchar_p), 'ppstrId')),
-            COMMETHOD([], HRESULT, 'GetState', (['out'], POINTER(c_uint), 'pdwState')),
+                      (['in'],  GUID,                      'iid'),
+                      (['in'],  c_uint,                    'dwClsCtx'),
+                      (['in'],  POINTER(c_uint),           'pActivationParams'),
+                      (['out'], POINTER(POINTER(IUnknown)),'ppInterface')),
         ]
 
     class IMMDeviceEnumeratorLocal(IUnknown):
         _iid_ = GUID('{A95664D2-9614-4F35-A746-DE8DB63617E6}')
         _methods_ = [
+            # EnumAudioEndpoints must be listed first (vtable slot 3) even though unused
             COMMETHOD([], HRESULT, 'EnumAudioEndpoints',
-                      (['in'], c_uint, 'dataFlow'),
-                      (['in'], c_uint, 'dwStateMask'),
-                      ['out']),
+                      (['in'],  c_uint,                    'dataFlow'),
+                      (['in'],  c_uint,                    'dwStateMask'),
+                      (['out'], POINTER(POINTER(IUnknown)),'ppDevices')),
+            # GetDefaultAudioEndpoint (vtable slot 4)
             COMMETHOD([], HRESULT, 'GetDefaultAudioEndpoint',
-                      (['in'], c_uint, 'dataFlow'),
-                      (['in'], c_uint, 'role'),
-                      (['out'], POINTER(POINTER(IMMDevice)), 'ppEndpoint')),
+                      (['in'],  c_uint,                    'dataFlow'),
+                      (['in'],  c_uint,                    'role'),
+                      (['out'], POINTER(POINTER(IMMDevice)),'ppEndpoint')),
         ]
 
     meter = None
