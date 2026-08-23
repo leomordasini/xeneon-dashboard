@@ -333,8 +333,7 @@ def wasapi_meter_thread():
                 meter  = iunk.QueryInterface(IAudioMeterInformation)
 
             peak = meter.GetPeakValue()
-            if peak > 0.001:
-                print(f"WASAPI peak: {peak:.4f}")
+            # debug print removed — confirmed working
 
             with state_lock:
                 state["playback"][0]["level"] = peak
