@@ -240,10 +240,26 @@ input[type="range"].main-slider::-webkit-slider-thumb {
   </div>
 
   <!-- TEST: hardcoded mute button outside dynamic strips -->
-  <div style="position:fixed;top:70px;right:40px;z-index:9999;">
+  <div style="position:fixed;top:70px;right:40px;z-index:9999;display:flex;flex-direction:column;gap:8px;">
     <button onclick="alert('TOUCH WORKS')"
-            style="font-size:28px;padding:16px 32px;background:#f87171;color:#fff;border:none;border-radius:12px;cursor:pointer;">
+            style="font-size:22px;padding:12px 24px;background:#f87171;color:#fff;border:none;border-radius:12px;cursor:pointer;">
       TOUCH TEST
+    </button>
+    <button onclick="testMute('/1/mute/1/1')"
+            style="font-size:20px;padding:10px 20px;background:#7c3aed;color:#fff;border:none;border-radius:12px;cursor:pointer;">
+      TEST: /1/mute/1/1
+    </button>
+    <button onclick="testMute('/1/mute1')"
+            style="font-size:20px;padding:10px 20px;background:#7c3aed;color:#fff;border:none;border-radius:12px;cursor:pointer;">
+      TEST: /1/mute1
+    </button>
+    <button onclick="testMute('/1/1/mute')"
+            style="font-size:20px;padding:10px 20px;background:#7c3aed;color:#fff;border:none;border-radius:12px;cursor:pointer;">
+      TEST: /1/1/mute
+    </button>
+    <button onclick="testMute('/1/mute')"
+            style="font-size:20px;padding:10px 20px;background:#7c3aed;color:#fff;border:none;border-radius:12px;cursor:pointer;">
+      TEST: /1/mute
     </button>
   </div>
 
@@ -406,6 +422,16 @@ function setBank(bank) {
     document.getElementById(`tab-${b}`).classList.toggle('active', b === bank);
   });
   buildStrips();
+}
+
+// ── MUTE ADDRESS DISCOVERY ───────────────────────────────────
+function testMute(addr) {
+  fetch('/mixer/action', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ action:'osc_raw', addr: addr, value: 1.0 })
+  }).then(r => r.json()).then(d => alert('Sent: ' + addr + '\nCheck TotalMixFX — did AN1 mute?'))
+    .catch(e => alert('Error: ' + e));
 }
 
 // ── MUTE ────────────────────────────────────────────────────
