@@ -1,16 +1,21 @@
 #!/usr/bin/env python3
 """
 OSC Bridge for TotalMixFX (RME Babyface Pro)
-- HTTP on localhost:8081  ← dashboard talks here
-- OSC out → TotalMixFX on port 7001
-- OSC in  ← TotalMixFX on port 9001 (raw UDP, no library dependency)
+Confirmed TotalMixFX OSC address map (from live capture):
+  /1/volume1-8      Input channel faders      (float 0.0-1.0)
+  /2/volume1-8      Playback channel faders   (float 0.0-1.0)
+  /3/volume1-8      Output channel faders     (float 0.0-1.0)
+  /1/mastervolume   Main output volume        (float 0.0-1.0)
+  /1/mute1-8        Input mutes               (float 0.0 or 1.0)
+  /2/mute1-8        Playback mutes
+  /3/mute1-8        Output mutes
 
 TotalMixFX setup:
   Options → Settings → Remote Controller
-  Port Incoming: 7001
-  Port Outgoing: 9001
+  Port Incoming: 7001   (TotalMix listens — we send here)
+  Port Outgoing: 9001   (TotalMix sends  — we listen here)
   Remote IP:     127.0.0.1
-  OSC enabled:   yes
+  OSC:           enabled
 """
 
 import json
@@ -39,7 +44,6 @@ last_osc_rx = 0.0
 
 # ── RAW OSC HELPERS ────────────────────────────────────────
 def osc_pad(s: bytes) -> bytes:
-    """Pad bytes to next 4-byte boundary."""
     r = len(s) % 4
     return s + b'\x00' * (4 - r if r else 0)
 
@@ -47,10 +51,8 @@ def osc_encode_string(s: str) -> bytes:
     return osc_pad(s.encode('ascii') + b'\x00')
 
 def osc_decode_string(data: bytes, offset: int):
-    """Read null-terminated string from data at offset, return (string, new_offset)."""
     end = data.index(b'\x00', offset)
     s   = data[offset:end].decode('ascii', errors='replace')
-    # advance to next 4-byte boundary
     padded = end + 1
     r = padded % 4
     if r: padded += (4 - r)
@@ -68,19 +70,20 @@ def make_osc_message(addr: str, *args) -> bytes:
     return msg
 
 def parse_osc_message(data: bytes):
-    """Parse raw OSC bytes → (address, [float_args]) or None on failure."""
+    """Parse raw OSC bytes → list of (address, args) tuples."""
     try:
         if data[:8] == b'#bundle\x00':
-            # OSC bundle — iterate sub-messages
             results = []
-            offset = 16  # skip #bundle + timetag
-            while offset < len(data):
+            offset  = 16  # skip #bundle + timetag
+            while offset < len(data) - 4:
                 size = struct.unpack('>I', data[offset:offset+4])[0]
                 offset += 4
-                sub = parse_osc_message(data[offset:offset+size])
-                if sub: results.extend(sub)
+                if size > 0:
+                    sub = parse_osc_message(data[offset:offset+size])
+                    if sub:
+                        results.extend(sub)
                 offset += size
-            return results if results else None
+            return results
 
         addr, offset = osc_decode_string(data, 0)
         if offset >= len(data):
@@ -98,6 +101,8 @@ def parse_osc_message(data: bytes):
             elif t == 's':
                 s, offset = osc_decode_string(data, offset)
                 args.append(s)
+            else:
+                offset += 4  # skip unknown types
         return [(addr, args)]
     except Exception:
         return None
@@ -111,34 +116,43 @@ def osc_send(addr: str, *args):
     print(f"OSC SEND: {addr} {args}")
 
 def send_fader(bank, channel, value):
-    row  = {"input": 1, "playback": 2, "output": 3}.get(bank, 2)
-    osc_send(f"/{row}/fader{channel + 1}", float(value))
+    row = {"input": 1, "playback": 2, "output": 3}.get(bank, 2)
+    osc_send(f"/{row}/volume{channel + 1}", float(value))
 
 def send_mute(bank, channel, muted):
-    row  = {"input": 1, "playback": 2, "output": 3}.get(bank, 2)
+    row = {"input": 1, "playback": 2, "output": 3}.get(bank, 2)
     osc_send(f"/{row}/mute{channel + 1}", 1.0 if muted else 0.0)
 
 def send_main(value):
-    osc_send("/1/mainVolume", float(value))
+    osc_send("/1/mastervolume", float(value))
 
 def refresh_state():
     osc_send("/refresh", 1.0)
 
-# ── OSC RECEIVE (raw UDP) ──────────────────────────────────
+# ── OSC RECEIVE ───────────────────────────────────────────
 def handle_message(addr: str, args: list):
     global last_osc_rx
     last_osc_rx = time.time()
-    print(f"OSC RECV: {addr} {args}")
 
-    val = float(args[0]) if args else 0.0
+    # Only log addresses we care about to keep output clean
+    if any(k in addr for k in ['volume', 'mute', 'master']):
+        print(f"OSC RECV: {addr} {args}")
 
-    # /1/mainVolume
-    if addr == "/1/mainVolume":
+    # Skip if no numeric arg
+    if not args or not isinstance(args[0], (int, float)):
+        return
+
+    val = float(args[0])
+
+    # Master volume
+    if addr == "/1/mastervolume":
         with state_lock:
-            state["main_out"] = val
+            state["main_out"]  = val
             state["connected"] = True
         return
 
+    # Channel faders: /1/volume1 /2/volume3 /3/volume5 etc.
+    # Channel mutes:  /1/mute1   /2/mute2   /3/mute3 etc.
     parts = addr.strip("/").split("/")
     if len(parts) != 2:
         with state_lock:
@@ -155,8 +169,8 @@ def handle_message(addr: str, args: list):
     if not bank_key:
         return
 
-    if rest.startswith("fader"):
-        ch_str = rest[len("fader"):]
+    if rest.startswith("volume"):
+        ch_str = rest[len("volume"):]
         key    = "fader"
     elif rest.startswith("mute"):
         ch_str = rest[len("mute"):]
@@ -192,11 +206,7 @@ def osc_listener_thread():
             data, _ = sock.recvfrom(65535)
             parsed  = parse_osc_message(data)
             if parsed:
-                if isinstance(parsed, list):
-                    for addr, args in parsed:
-                        handle_message(addr, args)
-                else:
-                    addr, args = parsed
+                for addr, args in parsed:
                     handle_message(addr, args)
         except Exception as e:
             print(f"OSC recv error: {e}")
@@ -224,8 +234,8 @@ class MixerHandler(http.server.BaseHTTPRequestHandler):
             self._json(404, b'{"error":"not found"}')
 
     def do_POST(self):
-        length = int(self.headers.get("Content-Length", 0))
-        body   = self.rfile.read(length) if length else b"{}"
+        length  = int(self.headers.get("Content-Length", 0))
+        body    = self.rfile.read(length) if length else b"{}"
         try:
             payload = json.loads(body)
         except Exception:
