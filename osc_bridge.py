@@ -379,7 +379,7 @@ def watchdog_thread():
                     if ch["peak"] > 0:
                         ch["peak"]  = max(0.0, ch["peak"]  - 0.02)
                     if ch["level"] > 0:
-                        ch["level"] = max(0.0, ch["level"] - 0.05)
+                        ch["level"] = max(0.0, ch["level"] - 0.01)  # slow decay — WASAPI refreshes at 20fps
 
 
 # ── HTTP SERVER ─────────────────────────────────────────────
@@ -387,8 +387,6 @@ class MixerHandler(http.server.BaseHTTPRequestHandler):
 
     def do_GET(self):
         if self.path.startswith("/mixer/state"):
-            refresh_state()
-            time.sleep(0.1)
             with state_lock:
                 data = json.dumps(state).encode()
             self._json(200, data)
