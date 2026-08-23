@@ -167,6 +167,11 @@ def handle_message(addr: str, args: list):
                     state[bank_key][ch]["peak"] = val
         return
 
+    # Log anything else we don't recognise (to discover new address formats)
+    if not any(k in addr for k in ['volume', 'mute', 'master']):
+        print(f"OSC UNKNOWN: {addr} {args[:1] if args else []}")
+        return
+
     # Master volume
     if addr == "/1/mastervolume":
         with state_lock:
