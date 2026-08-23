@@ -239,6 +239,14 @@ input[type="range"].main-slider::-webkit-slider-thumb {
     </div>
   </div>
 
+  <!-- TEST: hardcoded mute button outside dynamic strips -->
+  <div style="position:fixed;top:70px;right:40px;z-index:9999;">
+    <button onclick="alert('TOUCH WORKS')"
+            style="font-size:28px;padding:16px 32px;background:#f87171;color:#fff;border:none;border-radius:12px;cursor:pointer;">
+      TOUCH TEST
+    </button>
+  </div>
+
   <!-- FADER STRIPS (8 channels) -->
   <div class="strips-wrap" id="strips"></div>
 
@@ -328,7 +336,7 @@ function buildStrips() {
       </div>
       <button class="mute-btn${muted?' muted':''}" id="mute-${i}"
               data-ch="${i}" data-muted="${muted}"
-              onclick="toggleMute(${i}, this.dataset.muted !== 'true')">
+              onclick="console.log('MUTE CLICK',${i},this.dataset.muted); toggleMute(${i}, this.dataset.muted !== 'true')">
         <span id="mute-icon-${i}">${muted?'🔇':'🔊'}</span>
       </button>
     `;
