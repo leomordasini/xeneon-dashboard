@@ -294,8 +294,18 @@ def wasapi_meter_thread():
         try:
             # Acquire meter for default render device (YouTube / Windows audio playback)
             if meter_render is None:
-                speakers = AudioUtilities.GetSpeakers()
-                iface = speakers.Activate(
+                # Use IMMDeviceEnumerator directly — AudioUtilities.GetSpeakers()
+                # returns a pycaw wrapper without a usable .Activate() method
+                enumerator = comtypes.CoCreateInstance(
+                    comtypes.GUID("{BCDE0395-E52F-467C-8E3D-C4579291692E}"),
+                    None,
+                    comtypes.CLSCTX_ALL,
+                    comtypes.IUnknown
+                )
+                imm = enumerator.QueryInterface(IMMDeviceEnumerator)
+                # eRender=0, eConsole=0
+                device = imm.GetDefaultAudioEndpoint(0, 0)
+                iface = device.Activate(
                     IAudioMeterInformation._iid_, comtypes.CLSCTX_ALL, None
                 )
                 meter_render = iface.QueryInterface(IAudioMeterInformation)
