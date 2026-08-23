@@ -42,13 +42,13 @@ html, body {
 .shell {
   width: 2536px; height: 696px;
   display: flex; flex-direction: column;
-  padding: 20px 32px 0;
+  padding: 18px 32px 52px;
 }
 
 /* ── HEADER ── */
 .header {
   display: flex; align-items: center; justify-content: space-between;
-  height: 72px; flex-shrink: 0;
+  height: 60px; flex-shrink: 0;
 }
 .title { font-size: 38px; font-weight: 700; letter-spacing: -0.02em; }
 .title span { color: var(--accent); }
@@ -99,14 +99,14 @@ html, body {
 
 /* vertical fader */
 .fader-wrap {
-  width: 64px; height: 340px; position: relative;
+  width: 64px; height: 280px; position: relative;
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
 }
 
 /* ── VU METER ── */
 .vu-wrap {
-  width: 18px; height: 340px; position: relative;
+  width: 18px; height: 280px; position: relative;
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0; margin-left: 6px;
 }
@@ -180,9 +180,8 @@ html, body {
 
 /* ── MAIN OUTPUT BAR ── */
 .main-bar {
-  flex-shrink: 0; height: 72px;
+  flex-shrink: 0; height: 60px;
   display: flex; align-items: center; gap: 24px;
-  padding: 0 16px;
   border-top: 1px solid var(--border);
   background: rgba(0,0,0,0.3);
   margin: 0 -32px;
