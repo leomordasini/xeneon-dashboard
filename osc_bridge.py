@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 """
 OSC Bridge for TotalMixFX (RME Babyface Pro)
-- Listens for HTTP requests from the mixer dashboard
-- Translates them to OSC messages sent to TotalMixFX
-- Reads OSC responses from TotalMixFX and caches state
-- Runs on localhost:8081
+- HTTP on localhost:8081  ← dashboard talks here
+- OSC out → TotalMixFX on port 7001
+- OSC in  ← TotalMixFX on port 9001
 
-TotalMixFX OSC config:
-  Remote Controller → Enable OSC
-  Incoming port: 7001  (TotalMix listens here — we send TO this)
-  Outgoing port: 9001  (TotalMix sends FROM here — we listen HERE)
+TotalMixFX setup:
+  Options → Settings → OSC Remote Controller
+  Enable: checked
+  Incoming port: 7001   (TotalMix listens — we send here)
+  Outgoing port: 9001   (TotalMix sends  — we listen here)
+  Remote IP: 127.0.0.1
 
 Install: pip install python-osc
 """
@@ -18,121 +19,138 @@ import json
 import threading
 import time
 import http.server
-from http import HTTPStatus
 from pythonosc import udp_client, dispatcher, osc_server
 
 # ── CONFIG ─────────────────────────────────────────────────
-TOTALMIX_HOST = "127.0.0.1"
-TOTALMIX_PORT = 7001   # TotalMix listens on this port (we send to it)
-OSC_LISTEN_PORT = 9001  # TotalMix sends to this port (we listen here)
-HTTP_PORT = 8081
+TOTALMIX_HOST   = "127.0.0.1"
+TOTALMIX_PORT   = 7001
+OSC_LISTEN_PORT = 9001
+HTTP_PORT       = 8081
 
 # ── STATE ──────────────────────────────────────────────────
-# Mixer state cache — updated whenever TotalMix sends OSC feedback
 state = {
-    "inputs":  [{"fader": 0.75, "mute": False, "label": f"Input {i+1}"} for i in range(8)],
-    "playback": [{"fader": 0.75, "mute": False, "label": f"PB {i+1}"}   for i in range(8)],
-    "outputs": [{"fader": 0.75, "mute": False, "label": f"Out {i+1}"}   for i in range(8)],
+    "inputs":   [{"fader": 0.75, "mute": False} for _ in range(8)],
+    "playback": [{"fader": 0.75, "mute": False} for _ in range(8)],
+    "outputs":  [{"fader": 0.75, "mute": False} for _ in range(8)],
     "main_out": 0.75,
     "connected": False,
 }
-state_lock = threading.Lock()
+state_lock   = threading.Lock()
+last_osc_rx  = 0.0   # timestamp of last received OSC message
 
-# ── OSC CLIENT (send to TotalMix) ──────────────────────────
+# ── OSC CLIENT ─────────────────────────────────────────────
 osc_client = udp_client.SimpleUDPClient(TOTALMIX_HOST, TOTALMIX_PORT)
 
 def send_fader(bank, channel, value):
-    """Send fader value. bank: 'input'|'playback'|'output', channel: 0-indexed, value: 0.0-1.0"""
-    addr_map = {"input": "/1/fader", "playback": "/2/fader", "output": "/3/fader"}
-    base = addr_map.get(bank, "/2/fader")
-    # TotalMixFX OSC fader addresses: /1/fader1 through /1/fader8
-    addr = f"{base}{channel + 1}"
+    # TotalMixFX OSC rows: 1=inputs, 2=playback, 3=outputs
+    row = {"input": 1, "playback": 2, "output": 3}.get(bank, 2)
+    addr = f"/{row}/fader{channel + 1}"
+    print(f"OSC SEND: {addr} = {value:.3f}")
     osc_client.send_message(addr, float(value))
 
 def send_mute(bank, channel, muted):
-    addr_map = {"input": "/1/mute", "playback": "/2/mute", "output": "/3/mute"}
-    base = addr_map.get(bank, "/2/mute")
-    addr = f"{base}{channel + 1}"
+    row  = {"input": 1, "playback": 2, "output": 3}.get(bank, 2)
+    addr = f"/{row}/mute{channel + 1}"
+    print(f"OSC SEND: {addr} = {1.0 if muted else 0.0}")
     osc_client.send_message(addr, 1.0 if muted else 0.0)
 
 def send_main(value):
     osc_client.send_message("/1/mainVolume", float(value))
 
 def refresh_state():
-    """Ask TotalMix to send back all current values"""
     try:
         osc_client.send_message("/refresh", 1.0)
     except Exception:
         pass
 
-# ── OSC SERVER (receive from TotalMix) ─────────────────────
-def handle_fader(addr, *args):
-    # addr like /1/fader3, /2/fader5, /3/fader2
-    with state_lock:
-        state["connected"] = True
-        val = float(args[0]) if args else 0.75
-        parts = addr.strip("/").split("/")
-        if len(parts) == 2:
-            bank_num = parts[0]
-            chan_str = parts[1].replace("fader", "")
-            try:
-                ch = int(chan_str) - 1
-                if bank_num == "1" and 0 <= ch < 8:
-                    state["inputs"][ch]["fader"] = val
-                elif bank_num == "2" and 0 <= ch < 8:
-                    state["playback"][ch]["fader"] = val
-                elif bank_num == "3" and 0 <= ch < 8:
-                    state["outputs"][ch]["fader"] = val
-            except ValueError:
-                pass
+# ── OSC LISTENER ───────────────────────────────────────────
+# Use a default handler to catch ALL incoming OSC messages —
+# python-osc wildcards are unreliable; this approach catches everything.
 
-def handle_mute(addr, *args):
-    with state_lock:
-        val = bool(args[0]) if args else False
-        parts = addr.strip("/").split("/")
-        if len(parts) == 2:
-            bank_num = parts[0]
-            chan_str = parts[1].replace("mute", "")
-            try:
-                ch = int(chan_str) - 1
-                if bank_num == "1" and 0 <= ch < 8:
-                    state["inputs"][ch]["mute"] = val
-                elif bank_num == "2" and 0 <= ch < 8:
-                    state["playback"][ch]["mute"] = val
-                elif bank_num == "3" and 0 <= ch < 8:
-                    state["outputs"][ch]["mute"] = val
-            except ValueError:
-                pass
+def handle_any(addr, *args):
+    global last_osc_rx
+    last_osc_rx = time.time()
 
-def handle_main(addr, *args):
-    with state_lock:
-        state["main_out"] = float(args[0]) if args else 0.75
-        state["connected"] = True
+    print(f"OSC RECV: {addr} {args}")
 
-def start_osc_listener():
-    disp = dispatcher.Dispatcher()
-    disp.map("/1/fader*", handle_fader)
-    disp.map("/2/fader*", handle_fader)
-    disp.map("/3/fader*", handle_fader)
-    disp.map("/1/mute*", handle_mute)
-    disp.map("/2/mute*", handle_mute)
-    disp.map("/3/mute*", handle_mute)
-    disp.map("/1/mainVolume", handle_main)
     try:
-        server = osc_server.ThreadingOSCUDPServer(("0.0.0.0", OSC_LISTEN_PORT), disp)
+        val = float(args[0]) if args else 0.0
+    except (TypeError, ValueError):
+        return
+
+    # Parse address: /row/typeN  e.g. /1/fader3 /3/mute2
+    parts = addr.strip("/").split("/")
+    if len(parts) != 2:
+        return
+
+    row_str, rest = parts
+    try:
+        row = int(row_str)
+    except ValueError:
+        return
+
+    bank_key = {1: "inputs", 2: "playback", 3: "outputs"}.get(row)
+    if not bank_key:
+        return
+
+    if rest.startswith("fader"):
+        ch_str = rest[len("fader"):]
+    elif rest.startswith("mute"):
+        ch_str = rest[len("mute"):]
+    else:
+        return
+
+    try:
+        ch = int(ch_str) - 1
+    except ValueError:
+        return
+
+    if not (0 <= ch < 8):
+        return
+
+    with state_lock:
+        state["connected"] = True
+        if rest.startswith("fader"):
+            state[bank_key][ch]["fader"] = val
+        elif rest.startswith("mute"):
+            state[bank_key][ch]["mute"] = bool(val)
+
+    # Handle main volume separately
+    if addr == "/1/mainVolume":
         with state_lock:
-            state["connected"] = True
-        server.serve_forever()
+            state["main_out"] = val
+
+
+def osc_listener_thread():
+    disp = dispatcher.Dispatcher()
+    disp.set_default_handler(handle_any)
+    try:
+        srv = osc_server.ThreadingOSCUDPServer(("0.0.0.0", OSC_LISTEN_PORT), disp)
+        print(f"OSC listener ready on port {OSC_LISTEN_PORT}")
+        srv.serve_forever()
     except Exception as e:
         print(f"OSC listener error: {e}")
+
+
+def watchdog_thread():
+    """Mark disconnected if no OSC message received in 10 seconds."""
+    global last_osc_rx
+    while True:
+        time.sleep(3)
+        with state_lock:
+            if last_osc_rx > 0 and (time.time() - last_osc_rx) > 10:
+                state["connected"] = False
+            elif last_osc_rx == 0:
+                state["connected"] = False
+
 
 # ── HTTP SERVER ─────────────────────────────────────────────
 class MixerHandler(http.server.BaseHTTPRequestHandler):
 
     def do_GET(self):
-        if self.path == "/mixer/state":
+        if self.path.startswith("/mixer/state"):
             refresh_state()
-            time.sleep(0.05)  # brief wait for OSC feedback
+            time.sleep(0.08)
             with state_lock:
                 data = json.dumps(state).encode()
             self._json(200, data)
@@ -140,8 +158,8 @@ class MixerHandler(http.server.BaseHTTPRequestHandler):
             self._json(404, b'{"error":"not found"}')
 
     def do_POST(self):
-        length = int(self.headers.get("Content-Length", 0))
-        body = self.rfile.read(length) if length else b"{}"
+        length  = int(self.headers.get("Content-Length", 0))
+        body    = self.rfile.read(length) if length else b"{}"
         try:
             payload = json.loads(body)
         except Exception:
@@ -149,25 +167,25 @@ class MixerHandler(http.server.BaseHTTPRequestHandler):
             return
 
         action = payload.get("action")
-        bank   = payload.get("bank", "playback")  # input | playback | output
+        bank   = payload.get("bank", "playback")
         ch     = int(payload.get("channel", 0))
 
         if action == "fader":
             val = float(payload.get("value", 0.75))
             send_fader(bank, ch, val)
+            bk = {"input":"inputs","playback":"playback","output":"outputs"}.get(bank,"playback")
             with state_lock:
-                bank_key = {"input": "inputs", "playback": "playback", "output": "outputs"}.get(bank, "playback")
                 if 0 <= ch < 8:
-                    state[bank_key][ch]["fader"] = val
+                    state[bk][ch]["fader"] = val
             self._json(200, b'{"ok":true}')
 
         elif action == "mute":
             muted = bool(payload.get("muted", False))
             send_mute(bank, ch, muted)
+            bk = {"input":"inputs","playback":"playback","output":"outputs"}.get(bank,"playback")
             with state_lock:
-                bank_key = {"input": "inputs", "playback": "playback", "output": "outputs"}.get(bank, "playback")
                 if 0 <= ch < 8:
-                    state[bank_key][ch]["mute"] = muted
+                    state[bk][ch]["mute"] = muted
             self._json(200, b'{"ok":true}')
 
         elif action == "main":
@@ -203,13 +221,11 @@ class MixerHandler(http.server.BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    # Start OSC listener in background thread
-    osc_thread = threading.Thread(target=start_osc_listener, daemon=True)
-    osc_thread.start()
+    threading.Thread(target=osc_listener_thread, daemon=True).start()
+    threading.Thread(target=watchdog_thread,     daemon=True).start()
 
-    # Request initial state from TotalMix
     time.sleep(0.5)
     refresh_state()
 
-    print(f"OSC Bridge running — HTTP:{HTTP_PORT} | OSC→TotalMix:{TOTALMIX_PORT} | OSC←TotalMix:{OSC_LISTEN_PORT}")
+    print(f"OSC Bridge HTTP ready on port {HTTP_PORT}")
     http.server.HTTPServer(("127.0.0.1", HTTP_PORT), MixerHandler).serve_forever()
