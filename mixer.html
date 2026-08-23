@@ -327,23 +327,15 @@ function buildStrips() {
         </div>
       </div>
       <button class="mute-btn${muted?' muted':''}" id="mute-${i}"
-              data-ch="${i}" data-muted="${muted}">
-        <span>${muted?'🔇':'🔊'}</span>
+              data-ch="${i}" data-muted="${muted}"
+              onclick="toggleMute(${i}, document.getElementById('mute-${i}').dataset.muted !== 'true')">
+        <span id="mute-icon-${i}">${muted?'🔇':'🔊'}</span>
       </button>
     `;
     container.appendChild(strip);
 
     // Attach fader drag
     initFader(i, fval);
-
-    // Mute button
-    strip.querySelector(`#mute-${i}`).addEventListener('pointerdown', e => {
-      e.stopPropagation();
-      const btn   = e.currentTarget;
-      const ch    = parseInt(btn.dataset.ch);
-      const muted = btn.dataset.muted === 'true';
-      toggleMute(ch, !muted);
-    });
   }
 }
 
@@ -411,9 +403,11 @@ function setBank(bank) {
 // ── MUTE ────────────────────────────────────────────────────
 function toggleMute(ch, muted) {
   const btn  = document.getElementById(`mute-${ch}`);
+  const icon = document.getElementById(`mute-icon-${ch}`);
+  if (!btn) return;
   btn.dataset.muted = String(muted);
   btn.classList.toggle('muted', muted);
-  btn.innerHTML = `<span>${muted?'🔇':'🔊'}</span>`;
+  if (icon) icon.textContent = muted ? '🔇' : '🔊';
   btn.classList.add('pressing');
   setTimeout(() => btn.classList.remove('pressing'), 150);
   fetch('/mixer/action', {
@@ -496,7 +490,8 @@ async function pollState() {
       if (mBtn) {
         mBtn.dataset.muted = String(ch.mute);
         mBtn.classList.toggle('muted', ch.mute);
-        mBtn.querySelector('span').textContent = ch.mute ? '🔇' : '🔊';
+        const icon = document.getElementById(`mute-icon-${i}`);
+        if (icon) icon.textContent = ch.mute ? '🔇' : '🔊';
       }
       // VU meter
       if (vuFill) {
