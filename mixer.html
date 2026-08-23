@@ -328,7 +328,7 @@ function buildStrips() {
       </div>
       <button class="mute-btn${muted?' muted':''}" id="mute-${i}"
               data-ch="${i}" data-muted="${muted}"
-              onclick="toggleMute(${i}, document.getElementById('mute-${i}').dataset.muted !== 'true')">
+              onclick="toggleMute(${i}, this.dataset.muted !== 'true')">
         <span id="mute-icon-${i}">${muted?'🔇':'🔊'}</span>
       </button>
     `;
