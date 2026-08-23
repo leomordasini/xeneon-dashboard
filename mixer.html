@@ -424,6 +424,11 @@ function toggleMainMute() {
   btn.classList.toggle('muted', mainMuted);
   btn.querySelector('span').textContent = mainMuted ? '🔇' : '🔊';
   lbl.textContent = mainMuted ? 'UNMUTE' : 'MUTE';
+  fetch('/mixer/action', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ action:'mute', bank:'main', channel:0, muted: mainMuted })
+  }).catch(() => {});
 }
 
 // ── FADER SEND ───────────────────────────────────────────────

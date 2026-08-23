@@ -157,6 +157,14 @@ def send_mute(bank, channel, muted):
     # Send mute value: 1.0 = muted, 0.0 = unmuted — confirmed from live TotalMixFX feedback
     osc_send(f"/1/mute/1/{channel + 1}", 1.0 if muted else 0.0)
 
+def send_main_mute(muted):
+    # Mute at OUTPUT level — most reliable way to silence all audio
+    # AN 1/2 in Hardware Outputs = final stage before speakers
+    osc_send("/1/busOutput", 1.0)
+    osc_send("/1/mute/1/1", 1.0 if muted else 0.0)
+    # Also send globalMute
+    osc_send("/3/globalMute", 1.0 if muted else 0.0)
+
 def send_main(value):
     osc_send("/1/mastervolume", float(value))
 
@@ -423,11 +431,16 @@ class MixerHandler(http.server.BaseHTTPRequestHandler):
 
         elif action == "mute":
             muted = bool(payload.get("muted", False))
-            send_mute(bank, ch, muted)
-            bk = {"input":"inputs","playback":"playback","output":"outputs"}.get(bank,"playback")
-            with state_lock:
-                if 0 <= ch < len(state[bk]):
-                    state[bk][ch]["mute"] = muted
+            if bank == "main":
+                send_main_mute(muted)
+                with state_lock:
+                    state["main_muted"] = muted
+            else:
+                send_mute(bank, ch, muted)
+                bk = {"input":"inputs","playback":"playback","output":"outputs"}.get(bank,"playback")
+                with state_lock:
+                    if 0 <= ch < len(state[bk]):
+                        state[bk][ch]["mute"] = muted
             self._json(200, b'{"ok":true}')
 
         elif action == "main":
