@@ -143,6 +143,9 @@ def handle_message(addr: str, args: list):
     # Only log addresses we care about to keep output clean
     if any(k in addr for k in ['volume', 'mute', 'master']):
         print(f"OSC RECV: {addr} {args}")
+    # Log ALL unrecognised addresses so we can discover meter format
+    elif not any(k in addr for k in ['volume', 'mute', 'master', 'meter']):
+        print(f"OSC UNKNOWN: {addr} {args[:2] if args else []}")
 
     # Skip if no numeric arg
     if not args or not isinstance(args[0], (int, float)):
