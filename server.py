@@ -1,27 +1,20 @@
 #!/usr/bin/env python3
 """
-Xeneon Dashboard Server — HTTPS edition
-- Serves HTML dashboards as static files over HTTPS
+Xeneon Dashboard Server — HTTP (cloudflared handles HTTPS)
+- Serves HTML dashboards as static files
 - Proxies /api/* to Home Assistant (handles auth + CORS)
-- Generates self-signed cert on first run if cert.pem missing
-- Auto-starts on Windows login via Task Scheduler (setup_autostart.bat)
 """
 
 import http.server
 import urllib.request
 import urllib.error
-import ssl
 import os
-import sys
-import subprocess
 
 PORT     = 8080
 HA_URL   = "http://192.168.1.30:8123"
 HA_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiIyNTkyYmQxODU2N2Q0MjJmOWZkNmRlYTc2MjdmYTUyNyIsImlhdCI6MTc4NzQ1MjgwOSwiZXhwIjoyMTAyODEyODA5fQ.PDfpA3-H5g5v2UHPf6Lhiq5iI5eR5IvINOVgQab-kmI"
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-CERT = os.path.join(HERE, "cert.pem")
-KEY  = os.path.join(HERE, "key.pem")
 
 
 class DashboardHandler(http.server.SimpleHTTPRequestHandler):
@@ -74,29 +67,10 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
 
     def log_message(self, format, *args):
-        pass  # Silent
-
-
-def ensure_cert():
-    if os.path.exists(CERT) and os.path.exists(KEY):
-        return True
-    print("No certificate found. Run generate_cert.py first.")
-    print("  python generate_cert.py")
-    return False
+        pass
 
 
 if __name__ == "__main__":
     os.chdir(HERE)
-
-    if not ensure_cert():
-        sys.exit(1)
-
-    # Set up SSL context
-    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-    context.load_cert_chain(CERT, KEY)
-
     server = http.server.HTTPServer(("0.0.0.0", PORT), DashboardHandler)
-    server.socket = context.wrap_socket(server.socket, server_side=True)
-
-    print(f"Xeneon Dashboard → https://192.168.1.148:{PORT}/lights.html")
     server.serve_forever()
