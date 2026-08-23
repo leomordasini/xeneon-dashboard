@@ -430,6 +430,16 @@ class MixerHandler(http.server.BaseHTTPRequestHandler):
                 state["main_out"] = val
             self._json(200, b'{"ok":true}')
 
+        elif action == "osc_raw":
+            # Debug: send a raw OSC address/value — used to discover TotalMixFX mute address format
+            addr = payload.get("addr", "")
+            val  = float(payload.get("value", 1.0))
+            if addr:
+                osc_send(addr, val)
+                self._json(200, b'{"ok":true}')
+            else:
+                self._json(400, b'{"error":"no addr"}')
+
         elif action == "refresh":
             refresh_state()
             self._json(200, b'{"ok":true}')
