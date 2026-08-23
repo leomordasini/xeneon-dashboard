@@ -1,103 +1,47 @@
 @echo off
-:: Xeneon Dashboard — Full Setup
-:: Run ONCE as Administrator
-:: Registers both the HTTP server and cloudflared tunnel to start on login
+:: Xeneon Dashboard - Named Tunnel Setup
+:: Run this ONCE as Administrator after cloning the repo
+:: Prerequisites: cloudflared.exe in this folder, mordasin.com on Cloudflare
 
-set "DIR=%~dp0"
-
-echo === Xeneon Dashboard Setup ===
+echo ==========================================
+echo  Xeneon Dashboard - One-Time Setup
+echo ==========================================
 echo.
 
-:: Check Python
-where python >nul 2>&1
-if errorlevel 1 (
-    echo [ERROR] Python not found.
-    echo Download from https://python.org — check "Add Python to PATH"
-    pause & exit /b 1
-)
+set SCRIPT_DIR=%~dp0
 
-:: Check cloudflared
-if not exist "%DIR%cloudflared.exe" (
-    echo [ERROR] cloudflared.exe not found in %DIR%
-    echo Download from:
-    echo https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe
-    echo Save it as: %DIR%cloudflared.exe
-    pause & exit /b 1
-)
-
-:: Remove old tasks
-schtasks /delete /tn "XeneonDashboard" /f >nul 2>&1
-schtasks /delete /tn "XeneonTunnel"    /f >nul 2>&1
-
-:: Register dashboard server (silent, no window)
-echo Registering dashboard server...
-schtasks /create /tn "XeneonDashboard" ^
-  /tr "pythonw \"%DIR%server.py\"" ^
-  /sc onlogon /rl highest /delay 0000:05 /f >nul 2>&1
-if errorlevel 1 (
-    echo [WARN] Could not register XeneonDashboard task. Make sure you ran as Admin.
-) else (
-    echo [OK] XeneonDashboard task registered.
-)
-
-:: Register tunnel (silent, no window)
-echo Registering tunnel...
-schtasks /create /tn "XeneonTunnel" ^
-  /tr "pythonw \"%DIR%tunnel.py\"" ^
-  /sc onlogon /rl highest /delay 0000:08 /f >nul 2>&1
-if errorlevel 1 (
-    echo [WARN] Could not register XeneonTunnel task. Make sure you ran as Admin.
-) else (
-    echo [OK] XeneonTunnel task registered.
-)
-
-:: Kill any existing instances
-taskkill /f /im pythonw.exe >nul 2>&1
-taskkill /f /im cloudflared.exe >nul 2>&1
-timeout /t 1 >nul
-
-:: Start server now
+:: Step 1 - Log into Cloudflare (opens browser)
+echo [1/4] Logging into Cloudflare...
+"%SCRIPT_DIR%cloudflared.exe" tunnel login
 echo.
-echo Starting server...
-start "" pythonw "%DIR%server.py"
-timeout /t 2 >nul
-echo [OK] Server started on http://localhost:8080
 
-:: Start tunnel now
-echo Starting tunnel...
-start "" pythonw "%DIR%tunnel.py"
+:: Step 2 - Create the named tunnel
+echo [2/4] Creating named tunnel "xeneon"...
+"%SCRIPT_DIR%cloudflared.exe" tunnel create xeneon
+echo.
+echo NOTE: Copy the Tunnel ID shown above.
+echo Edit cloudflared-config.yml and replace ^<TUNNEL-ID^> and ^<YOUR-USERNAME^>
+echo Then press any key to continue...
+pause > nul
+
+:: Step 3 - Create DNS record on Cloudflare
+echo [3/4] Creating DNS record xeneon.mordasin.com...
+"%SCRIPT_DIR%cloudflared.exe" tunnel route dns xeneon xeneon.mordasin.com
+echo.
+
+:: Step 4 - Register Task Scheduler tasks
+echo [4/4] Registering Task Scheduler tasks...
+
+schtasks /create /tn "XeneonDashboard" /tr "pythonw \"%SCRIPT_DIR%server.py\"" /sc onlogon /delay 0000:05 /rl highest /f
+schtasks /create /tn "XeneonTunnel" /tr "pythonw \"%SCRIPT_DIR%tunnel.py\"" /sc onlogon /delay 0000:10 /rl highest /f
 
 echo.
-echo Waiting for tunnel URL (up to 20 seconds)...
-set WAITED=0
-:WAITLOOP
-timeout /t 2 >nul
-set /a WAITED+=2
-if exist "%DIR%tunnel_url.txt" goto GOTURL
-if %WAITED% GEQ 20 goto TIMEOUT
-goto WAITLOOP
-
-:GOTURL
-echo.
-echo =====================================================
+echo ==========================================
 echo  Setup complete!
+echo  Dashboard will be live at:
+echo  https://xeneon.mordasin.com/lights.html
+echo ==========================================
 echo.
-type "%DIR%tunnel_url.txt"
-echo.
-echo  Copy the lights.html URL above into iCUE:
-echo  Web URL widget → Size XL → paste URL
-echo.
-echo  NOTE: This URL changes each reboot. Check
-echo  C:\xeneon-dashboard\tunnel_url.txt after restart.
-echo =====================================================
-echo.
+echo Rebooting now will auto-start everything.
+echo Or run start_server.bat to start manually.
 pause
-goto END
-
-:TIMEOUT
-echo.
-echo [WARN] Tunnel URL not captured yet. Check tunnel_url.txt in a few seconds.
-echo.
-pause
-
-:END

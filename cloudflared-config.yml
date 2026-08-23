@@ -1,0 +1,11 @@
+# Cloudflare Named Tunnel Config
+# Replace <TUNNEL-ID> with the ID output from: cloudflared.exe tunnel create xeneon
+# Replace <YOUR-USERNAME> with your Windows username
+
+tunnel: <TUNNEL-ID>
+credentials-file: C:\Users\<YOUR-USERNAME>\.cloudflared\<TUNNEL-ID>.json
+
+ingress:
+  - hostname: xeneon.mordasin.com
+    service: http://localhost:8080
+  - service: http_status:404
