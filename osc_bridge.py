@@ -10,6 +10,11 @@ Confirmed TotalMixFX OSC address map (from live capture):
   /2/mute1-8        Playback mutes
   /3/mute1-8        Output mutes
 
+LEVEL METERS NOTE:
+  TotalMixFX only broadcasts level data for Hardware Inputs (bank 1) via OSC.
+  Software Playback (bank 2) and Hardware Outputs (bank 3) levels are NOT sent.
+  We read playback/output levels from Windows WASAPI via pycaw instead.
+
 TotalMixFX setup:
   Options → Settings → Remote Controller
   Port Incoming: 7001   (TotalMix listens — we send here)
@@ -25,6 +30,18 @@ import struct
 import threading
 import time
 import http.server
+
+# Optional: pycaw for Windows WASAPI audio level metering
+# (used to read Software Playback / Hardware Output levels TotalMixFX doesn't send via OSC)
+try:
+    import comtypes
+    from pycaw.pycaw import AudioUtilities, IAudioMeterInformation, IMMDeviceEnumerator
+    from pycaw.pycaw import EDataFlow, ERole
+    PYCAW_AVAILABLE = True
+    print("pycaw available — WASAPI meters enabled")
+except ImportError:
+    PYCAW_AVAILABLE = False
+    print("pycaw not found — install with: pip install pycaw  (Software Playback VU meters disabled)")
 
 # ── CONFIG ─────────────────────────────────────────────────
 TOTALMIX_HOST   = "127.0.0.1"
@@ -255,6 +272,60 @@ def handle_message(addr: str, args: list):
             state[bank_key][ch]["mute"] = bool(val)
 
 
+def wasapi_meter_thread():
+    """
+    Poll Windows WASAPI peak levels for Software Playback and Hardware Output channels.
+    TotalMixFX does NOT send these via OSC — only Hardware Inputs (bank 1) are broadcast.
+    Runs at ~20fps (50ms interval). Requires pycaw to be installed.
+    Maps:
+      default render device (Babyface AN 1/2) → playback[0] and outputs[0]
+    """
+    if not PYCAW_AVAILABLE:
+        return
+
+    # Must initialize COM for this thread
+    import comtypes
+    comtypes.CoInitialize()
+
+    meter_render = None  # default speakers meter
+    meter_output = None  # hardware output meter (may be same device)
+
+    while True:
+        try:
+            # Acquire meter for default render device (YouTube / Windows audio playback)
+            if meter_render is None:
+                speakers = AudioUtilities.GetSpeakers()
+                iface = speakers.Activate(
+                    IAudioMeterInformation._iid_, comtypes.CLSCTX_ALL, None
+                )
+                meter_render = iface.QueryInterface(IAudioMeterInformation)
+
+            # Read per-channel peaks from Windows audio engine
+            n = meter_render.GetMeteringChannelCount()
+            if n > 0:
+                peaks = meter_render.GetChannelsPeakValues(n)
+                left  = float(peaks[0]) if n > 0 else 0.0
+                right = float(peaks[1]) if n > 1 else left
+                peak_val = max(left, right)
+
+                with state_lock:
+                    # Software Playback AN 1/2 = playback channel index 0
+                    state["playback"][0]["level"] = peak_val
+                    if peak_val > state["playback"][0]["peak"]:
+                        state["playback"][0]["peak"] = peak_val
+                    # Hardware Output AN 1/2 = outputs channel index 0 (same signal path)
+                    state["outputs"][0]["level"] = peak_val
+                    if peak_val > state["outputs"][0]["peak"]:
+                        state["outputs"][0]["peak"] = peak_val
+
+        except Exception as e:
+            # Device changed or COM error — reset and retry next tick
+            meter_render = None
+            print(f"WASAPI meter error: {e}")
+
+        time.sleep(0.05)  # 50ms = 20fps — smooth enough for VU animation
+
+
 def osc_listener_thread():
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -365,6 +436,7 @@ class MixerHandler(http.server.BaseHTTPRequestHandler):
 if __name__ == "__main__":
     threading.Thread(target=osc_listener_thread, daemon=True).start()
     threading.Thread(target=watchdog_thread,     daemon=True).start()
+    threading.Thread(target=wasapi_meter_thread, daemon=True).start()
     time.sleep(0.5)
     refresh_state()
     print(f"OSC Bridge HTTP ready on port {HTTP_PORT}")
