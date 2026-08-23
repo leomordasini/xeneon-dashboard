@@ -121,7 +121,8 @@ def send_fader(bank, channel, value):
 
 def send_mute(bank, channel, muted):
     row = {"input": 1, "playback": 2, "output": 3}.get(bank, 2)
-    osc_send(f"/{row}/mute{channel + 1}", 1.0 if muted else 0.0)
+    # TotalMixFX mute format: /1/mute/1/1 through /1/mute/1/8
+    osc_send(f"/{row}/mute/1/{channel + 1}", 1.0 if muted else 0.0)
 
 def send_main(value):
     osc_send("/1/mastervolume", float(value))
@@ -152,8 +153,23 @@ def handle_message(addr: str, args: list):
         return
 
     # Channel faders: /1/volume1 /2/volume3 /3/volume5 etc.
-    # Channel mutes:  /1/mute1   /2/mute2   /3/mute3 etc.
+    # Channel mutes:  /1/mute/1/1 /2/mute/1/3 etc.
     parts = addr.strip("/").split("/")
+
+    # Mute format: /row/mute/1/ch → parts = [row, 'mute', '1', ch]
+    if len(parts) == 4 and parts[1] == "mute":
+        try:
+            row      = int(parts[0])
+            ch       = int(parts[3]) - 1
+            bank_key = {1: "inputs", 2: "playback", 3: "outputs"}.get(row)
+            if bank_key and 0 <= ch < 8:
+                with state_lock:
+                    state["connected"]          = True
+                    state[bank_key][ch]["mute"] = bool(val)
+        except ValueError:
+            pass
+        return
+
     if len(parts) != 2:
         with state_lock:
             state["connected"] = True
