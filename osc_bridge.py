@@ -36,14 +36,15 @@ import http.server
 try:
     import comtypes
     from ctypes import POINTER, cast
-    from comtypes import CLSCTX_ALL
-    from pycaw.pycaw import (AudioUtilities, IAudioMeterInformation,
-                              IMMDeviceEnumerator, CLSID_MMDeviceEnumerator)
+    from comtypes import CLSCTX_ALL, GUID
+    from pycaw.pycaw import IAudioMeterInformation
+    # CLSID_MMDeviceEnumerator — defined inline; not exported by all pycaw versions
+    _CLSID_MMDeviceEnumerator = GUID('{BCDE0395-E52F-467C-8E3D-C4579291692E}')
     PYCAW_AVAILABLE = True
     print("pycaw available — WASAPI meters enabled")
-except ImportError:
+except ImportError as _pycaw_err:
     PYCAW_AVAILABLE = False
-    print("pycaw not found — install with: pip install pycaw  (Software Playback VU meters disabled)")
+    print(f"pycaw not found — install with: pip install pycaw  (Software Playback VU meters disabled)")
 
 # ── CONFIG ─────────────────────────────────────────────────
 TOTALMIX_HOST   = "127.0.0.1"
@@ -278,33 +279,66 @@ def wasapi_meter_thread():
     """
     Poll Windows WASAPI peak levels for Software Playback and Hardware Output channels.
     TotalMixFX does NOT send these via OSC — only Hardware Inputs (bank 1) are broadcast.
-    Runs at 20fps (50ms). Requires pycaw.
+    Runs at 20fps (50ms). Requires pycaw (for IAudioMeterInformation).
     Maps: default render device peak → playback[0] (AN 1/2) and outputs[0] (AN 1/2)
     """
     if not PYCAW_AVAILABLE:
         return
 
     comtypes.CoInitialize()
+
+    # Define IMMDeviceEnumerator inline — avoids pycaw version export differences
+    import comtypes
+    from comtypes import GUID, COMMETHOD, HRESULT, IUnknown
+    from ctypes import POINTER, c_uint, c_wchar_p
+
+    class IMMDevice(IUnknown):
+        _iid_ = GUID('{D666063F-1587-4E43-81F1-B948E807363F}')
+        _methods_ = [
+            COMMETHOD([], HRESULT, 'Activate',
+                      (['in'], GUID, 'iid'),
+                      (['in'], c_uint, 'dwClsCtx'),
+                      (['in'], POINTER(c_uint), 'pActivationParams'),
+                      (['out'], POINTER(POINTER(IUnknown)), 'ppInterface')),
+            COMMETHOD([], HRESULT, 'OpenPropertyStore', (['in'], c_uint, 'stgmAccess'), ['out']),
+            COMMETHOD([], HRESULT, 'GetId', (['out'], POINTER(c_wchar_p), 'ppstrId')),
+            COMMETHOD([], HRESULT, 'GetState', (['out'], POINTER(c_uint), 'pdwState')),
+        ]
+
+    class IMMDeviceEnumeratorLocal(IUnknown):
+        _iid_ = GUID('{A95664D2-9614-4F35-A746-DE8DB63617E6}')
+        _methods_ = [
+            COMMETHOD([], HRESULT, 'EnumAudioEndpoints',
+                      (['in'], c_uint, 'dataFlow'),
+                      (['in'], c_uint, 'dwStateMask'),
+                      ['out']),
+            COMMETHOD([], HRESULT, 'GetDefaultAudioEndpoint',
+                      (['in'], c_uint, 'dataFlow'),
+                      (['in'], c_uint, 'role'),
+                      (['out'], POINTER(POINTER(IMMDevice)), 'ppEndpoint')),
+        ]
+
     meter = None
 
     while True:
         try:
             if meter is None:
-                # Create IMMDeviceEnumerator via pycaw's CLSID (correct approach)
                 enumerator = comtypes.CoCreateInstance(
-                    CLSID_MMDeviceEnumerator,
-                    IMMDeviceEnumerator,
+                    _CLSID_MMDeviceEnumerator,
+                    IMMDeviceEnumeratorLocal,
                     CLSCTX_ALL
                 )
-                # eRender=0, eConsole=0 — default playback device
-                device = enumerator.GetDefaultAudioEndpoint(0, 0)
-                meter_iface = device.Activate(
-                    IAudioMeterInformation._iid_, CLSCTX_ALL, None
-                )
-                meter = cast(meter_iface, POINTER(IAudioMeterInformation))
+                # eRender=0, eConsole=0
+                device_pp = POINTER(IMMDevice)()
+                enumerator.GetDefaultAudioEndpoint(0, 0, device_pp)
+                device = device_pp.contents
 
-            # GetPeakValue returns a single float (0.0–1.0) — overall peak across all channels
-            peak = meter.GetPeakValue()
+                iid = IAudioMeterInformation._iid_
+                iunk_pp = POINTER(IUnknown)()
+                device.Activate(iid, CLSCTX_ALL, None, iunk_pp)
+                meter = cast(iunk_pp, POINTER(IAudioMeterInformation))
+
+            peak = meter.contents.GetPeakValue()
 
             with state_lock:
                 state["playback"][0]["level"] = peak
@@ -315,7 +349,7 @@ def wasapi_meter_thread():
                     state["outputs"][0]["peak"] = peak
 
         except Exception as e:
-            meter = None  # reset and re-acquire next tick
+            meter = None
             print(f"WASAPI meter error: {e}")
 
         time.sleep(0.05)  # 50ms = 20fps
