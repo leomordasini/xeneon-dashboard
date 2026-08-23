@@ -270,7 +270,7 @@ input[type="range"].main-slider::-webkit-slider-thumb {
 // Inputs: 8 channels (Instr.3/4 is a stereo pair = 2 OSC addresses)
 // Playback: 6 channels, Outputs: 6 channels
 const CHANNEL_NAMES = {
-  input:    ['AN 1','AN 2','Instr. 3','Instr. 4','AS 1/2','ADAT 3/4','ADAT 5/6','ADAT 7/8'],
+  input:    ['AN 1','AN 2','Instr. 3',null,'AS 1/2','ADAT 3/4','ADAT 5/6','ADAT 7/8'],
   playback: ['AN 1/2','PH 3/4','AS 1/2','ADAT 3/4','ADAT 5/6','ADAT 7/8'],
   output:   ['AN 1/2','Main','AS 1/2','ADAT 3/4','ADAT 5/6','ADAT 7/8'],
 };
@@ -298,6 +298,7 @@ function buildStrips() {
   const bankData = mixerState ? mixerState[currentBank === 'input' ? 'inputs' : currentBank === 'playback' ? 'playback' : 'outputs'] : null;
 
   for (let i = 0; i < names.length; i++) {
+    if (names[i] === null) continue;  // hidden channel (e.g. Instr. 4 — stereo pair with Instr. 3)
     const fval  = bankData ? bankData[i].fader : 0.75;
     const muted = bankData ? bankData[i].mute  : false;
     const name  = names[i];
@@ -481,6 +482,7 @@ async function pollState() {
                    : currentBank === 'playback' ? mixerState.playback
                    : mixerState.outputs;
     bankData.forEach((ch, i) => {
+      if (CHANNEL_NAMES[currentBank][i] === null) return;  // skip hidden channels
       const fill   = document.getElementById(`ffill-${i}`);
       const thumb  = document.getElementById(`fthumb-${i}`);
       const dbEl   = document.getElementById(`db-${i}`);
