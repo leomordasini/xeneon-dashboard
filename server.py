@@ -32,7 +32,16 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         elif self.path.startswith("/mixer/"):
             self._proxy_to(MIXER_URL, "GET", None, ha=False)
         else:
+            # Serve file but strip query strings (cache busters) before lookup
+            self.path = self.path.split("?")[0]
             super().do_GET()
+
+    def end_headers(self):
+        # Never cache HTML files — forces fresh load every time
+        if self.path.endswith(".html") or self.path == "/" or "." not in self.path.split("/")[-1]:
+            self.send_header("Cache-Control", "no-store, no-cache, must-revalidate")
+            self.send_header("Pragma", "no-cache")
+        super().end_headers()
 
     def do_POST(self):
         length = int(self.headers.get("Content-Length", 0))
