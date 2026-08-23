@@ -36,10 +36,11 @@ HTTP_PORT       = 8081
 #   Inputs:   8 (AN1, AN2, Instr3, Instr4, AS1/2, ADAT3/4, ADAT5/6, ADAT7/8)
 #   Playback: 6 (AN1/2, PH3/4, AS1/2, ADAT3/4, ADAT5/6, ADAT7/8)
 #   Outputs:  6 (AN1/2, AS1/2, ADAT3/4, ADAT5/6, ADAT7/8, Main)
+def _ch(n): return [{"fader": 0.75, "mute": False, "level": 0.0, "peak": 0.0} for _ in range(n)]
 state = {
-    "inputs":   [{"fader": 0.75, "mute": False} for _ in range(8)],
-    "playback": [{"fader": 0.75, "mute": False} for _ in range(6)],
-    "outputs":  [{"fader": 0.75, "mute": False} for _ in range(6)],
+    "inputs":   _ch(8),
+    "playback": _ch(6),
+    "outputs":  _ch(6),
     "main_out": 0.75,
     "connected": False,
 }
@@ -174,6 +175,22 @@ def handle_message(addr: str, args: list):
             pass
         return
 
+    # Level meters: /1/meter1 /2/meter2 etc.
+    if len(parts) == 2 and parts[1].startswith("meter"):
+        try:
+            row      = int(parts[0])
+            ch       = int(parts[1][len("meter"):]) - 1
+            bank_key = {1: "inputs", 2: "playback", 3: "outputs"}.get(row)
+            if bank_key and 0 <= ch < len(state[bank_key]):
+                with state_lock:
+                    state["connected"]              = True
+                    state[bank_key][ch]["level"]    = val
+                    if val > state[bank_key][ch]["peak"]:
+                        state[bank_key][ch]["peak"] = val
+        except (ValueError, IndexError):
+            pass
+        return
+
     if len(parts) != 2:
         with state_lock:
             state["connected"] = True
@@ -234,10 +251,15 @@ def osc_listener_thread():
 
 def watchdog_thread():
     while True:
-        time.sleep(5)
+        time.sleep(0.1)
         with state_lock:
             if last_osc_rx == 0 or (time.time() - last_osc_rx) > 15:
                 state["connected"] = False
+            # Decay peaks slowly (drop 2% every 100ms = ~5 seconds full decay)
+            for bank_key in ("inputs", "playback", "outputs"):
+                for ch in state[bank_key]:
+                    if ch["peak"] > 0:
+                        ch["peak"] = max(0.0, ch["peak"] - 0.02)
 
 
 # ── HTTP SERVER ─────────────────────────────────────────────
