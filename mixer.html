@@ -239,24 +239,6 @@ input[type="range"].main-slider::-webkit-slider-thumb {
     </div>
   </div>
 
-  <!-- TEST: hardcoded mute button outside dynamic strips -->
-  <div style="position:fixed;top:70px;right:40px;z-index:9999;display:flex;flex-direction:column;gap:8px;">
-    <button onclick="alert('TOUCH WORKS')"
-            style="font-size:22px;padding:12px 24px;background:#f87171;color:#fff;border:none;border-radius:12px;cursor:pointer;">
-      TOUCH TEST
-    </button>
-    <button onclick="testMuteWithBus()" style="font-size:18px;padding:8px 16px;background:#16a34a;color:#fff;border:none;border-radius:10px;cursor:pointer;">✅ busInput → mute/1/1</button>
-    <button onclick="testMute('/3/globalMute')" style="font-size:18px;padding:8px 16px;background:#f59e0b;color:#fff;border:none;border-radius:10px;cursor:pointer;">🔇 /3/globalMute</button>
-    <button onclick="testMute('/1/mainDim')"   style="font-size:18px;padding:8px 16px;background:#f59e0b;color:#fff;border:none;border-radius:10px;cursor:pointer;">🔆 /1/mainDim</button>
-    <button onclick="testMute('/3/mainDim')"   style="font-size:18px;padding:8px 16px;background:#f59e0b;color:#fff;border:none;border-radius:10px;cursor:pointer;">🔆 /3/mainDim</button>
-    <button onclick="testMute('/1/mute/1/1')"     style="font-size:18px;padding:8px 16px;background:#7c3aed;color:#fff;border:none;border-radius:10px;cursor:pointer;">W/ val: /1/mute/1/1</button>
-    <button onclick="testMute('/1/mute1')"         style="font-size:18px;padding:8px 16px;background:#7c3aed;color:#fff;border:none;border-radius:10px;cursor:pointer;">W/ val: /1/mute1</button>
-    <button onclick="testMute('/1/mute')"          style="font-size:18px;padding:8px 16px;background:#7c3aed;color:#fff;border:none;border-radius:10px;cursor:pointer;">W/ val: /1/mute</button>
-    <button onclick="testMute('/1/mute/1/1',true)" style="font-size:18px;padding:8px 16px;background:#0ea5e9;color:#fff;border:none;border-radius:10px;cursor:pointer;">NO arg: /1/mute/1/1</button>
-    <button onclick="testMute('/1/mute1',true)"    style="font-size:18px;padding:8px 16px;background:#0ea5e9;color:#fff;border:none;border-radius:10px;cursor:pointer;">NO arg: /1/mute1</button>
-    <button onclick="testMute('/1/mute',true)"     style="font-size:18px;padding:8px 16px;background:#0ea5e9;color:#fff;border:none;border-radius:10px;cursor:pointer;">NO arg: /1/mute</button>
-  </div>
-
   <!-- FADER STRIPS (8 channels) -->
   <div class="strips-wrap" id="strips"></div>
 
@@ -418,48 +400,21 @@ function setBank(bank) {
   buildStrips();
 }
 
-// ── MUTE ADDRESS DISCOVERY ───────────────────────────────────
-async function testMuteWithBus() {
-  // The reference says: park OSC client on the row first, THEN send mute
-  // This tests: busInput 1.0 → /1/mute/1/1 1.0
-  const post = (addr, val) => fetch('/mixer/action', {
-    method: 'POST', headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ action:'osc_raw', addr, value: val })
-  });
-  await post('/1/busInput', 1.0);
-  await new Promise(r => setTimeout(r, 50));
-  await post('/1/mute/1/1', 1.0);
-  alert('Sent: busInput then /1/mute/1/1\nDid AN1 M toggle?');
-}
-function testMute(addr, noArgs) {
-  // Mute toggles on RISING EDGE only — send 1.0 and stop, no 0.0 release
-  const val = noArgs ? -1 : 1.0;
-  fetch('/mixer/action', {
-    method: 'POST',
-    headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ action:'osc_raw', addr: addr, value: val })
-  }).then(() => alert('Sent to: ' + addr + '\nDid AN1 M toggle in TotalMixFX?'))
-    .catch(e => alert('Error: ' + e));
-}
-
 // ── MUTE ────────────────────────────────────────────────────
 function toggleMute(ch, muted) {
   const btn  = document.getElementById(`mute-${ch}`);
   const icon = document.getElementById(`mute-icon-${ch}`);
-  if (!btn) { console.error('toggleMute: btn not found', ch); return; }
+  if (!btn) return;
   btn.dataset.muted = String(muted);
   btn.classList.toggle('muted', muted);
   if (icon) icon.textContent = muted ? '🔇' : '🔊';
   btn.classList.add('pressing');
   setTimeout(() => btn.classList.remove('pressing'), 150);
-  const payload = { action:'mute', bank: currentBank, channel: ch, muted };
-  console.log('FETCH MUTE', JSON.stringify(payload));
   fetch('/mixer/action', {
     method: 'POST',
     headers: {'Content-Type':'application/json'},
-    body: JSON.stringify(payload)
-  }).then(r => r.text().then(t => console.log('MUTE RESP', r.status, t)))
-    .catch(e => console.error('MUTE FETCH ERR', e));
+    body: JSON.stringify({ action:'mute', bank: currentBank, channel: ch, muted })
+  }).catch(() => {});
 }
 
 function toggleMainMute() {

@@ -150,14 +150,12 @@ def send_fader(bank, channel, value):
     osc_send(f"/1/volume{channel + 1}", float(value))
 
 def send_mute(bank, channel, muted):
-    row = {"input": 1, "playback": 2, "output": 3}.get(bank, 1)
-    # Step 1: Park this OSC client on the correct row — each client has its own bank state
+    # Park OSC client on the correct row first (each client has its own bank state)
     bus_addr = {"input": "/1/busInput", "playback": "/1/busPlayback", "output": "/1/busOutput"}.get(bank)
     if bus_addr:
         osc_send(bus_addr, 1.0)
-    # Step 2: Send mute — toggles on RISING EDGE only (1.0 press only, NO 0.0 release)
-    # Sending 0.0 would double-toggle back. We rely on OSC feedback for real state.
-    osc_send(f"/1/mute/1/{channel + 1}", 1.0)
+    # Send mute value: 1.0 = muted, 0.0 = unmuted — confirmed from live TotalMixFX feedback
+    osc_send(f"/1/mute/1/{channel + 1}", 1.0 if muted else 0.0)
 
 def send_main(value):
     osc_send("/1/mastervolume", float(value))
