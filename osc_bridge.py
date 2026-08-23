@@ -19,6 +19,7 @@ TotalMixFX setup:
 """
 
 import json
+import re
 import socket
 import struct
 import threading
@@ -143,15 +144,28 @@ def handle_message(addr: str, args: list):
     # Only log addresses we care about to keep output clean
     if any(k in addr for k in ['volume', 'mute', 'master']):
         print(f"OSC RECV: {addr} {args}")
-    # Log ALL unrecognised addresses so we can discover meter format
-    elif not any(k in addr for k in ['volume', 'mute', 'master', 'meter']):
-        print(f"OSC UNKNOWN: {addr} {args[:2] if args else []}")
 
     # Skip if no numeric arg
     if not args or not isinstance(args[0], (int, float)):
         return
 
     val = float(args[0])
+
+    # Level meters: /1/levelNLeft and /1/levelNRight (bank 1=inputs only for now)
+    # Take max of L/R as the display level for each channel strip
+    m = re.match(r'^/(\d+)/level(\d+)(Left|Right)$', addr)
+    if m:
+        row  = int(m.group(1))
+        ch   = int(m.group(2)) - 1
+        bank_key = {1: "inputs", 2: "playback", 3: "outputs"}.get(row)
+        if bank_key and 0 <= ch < len(state[bank_key]):
+            with state_lock:
+                state["connected"] = True
+                cur = state[bank_key][ch]["level"]
+                state[bank_key][ch]["level"] = max(cur, val)
+                if val > state[bank_key][ch]["peak"]:
+                    state[bank_key][ch]["peak"] = val
+        return
 
     # Master volume
     if addr == "/1/mastervolume":
@@ -262,7 +276,9 @@ def watchdog_thread():
             for bank_key in ("inputs", "playback", "outputs"):
                 for ch in state[bank_key]:
                     if ch["peak"] > 0:
-                        ch["peak"] = max(0.0, ch["peak"] - 0.02)
+                        ch["peak"]  = max(0.0, ch["peak"]  - 0.02)
+                    if ch["level"] > 0:
+                        ch["level"] = max(0.0, ch["level"] - 0.05)
 
 
 # ── HTTP SERVER ─────────────────────────────────────────────
