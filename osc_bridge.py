@@ -431,11 +431,16 @@ class MixerHandler(http.server.BaseHTTPRequestHandler):
             self._json(200, b'{"ok":true}')
 
         elif action == "osc_raw":
-            # Debug: send a raw OSC address/value — used to discover TotalMixFX mute address format
             addr = payload.get("addr", "")
-            val  = float(payload.get("value", 1.0))
+            val  = payload.get("value", 1.0)
             if addr:
-                osc_send(addr, val)
+                if val == -1:
+                    # Send bare OSC message with no args (toggle format)
+                    msg = make_osc_message(addr)
+                    _send_sock.sendto(msg, (TOTALMIX_HOST, TOTALMIX_PORT))
+                    print(f"OSC SEND (no-arg): {addr}")
+                else:
+                    osc_send(addr, float(val))
                 self._json(200, b'{"ok":true}')
             else:
                 self._json(400, b'{"error":"no addr"}')
