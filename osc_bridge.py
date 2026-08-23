@@ -78,7 +78,7 @@ def parse_osc_message(data: bytes):
                 size = struct.unpack('>I', data[offset:offset+4])[0]
                 offset += 4
                 sub = parse_osc_message(data[offset:offset+size])
-                if sub: results.append(sub)
+                if sub: results.extend(sub)
                 offset += size
             return results if results else None
 
