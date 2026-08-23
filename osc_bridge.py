@@ -289,7 +289,7 @@ def wasapi_meter_thread():
 
     # Define IMMDevice/IMMDeviceEnumerator inline — avoids pycaw version export differences
     from comtypes import GUID, COMMETHOD, HRESULT, IUnknown
-    from ctypes import POINTER, c_uint, c_wchar_p
+    from ctypes import POINTER, c_uint
 
     class IMMDevice(IUnknown):
         _iid_ = GUID('{D666063F-1587-4E43-81F1-B948E807363F}')
@@ -327,17 +327,12 @@ def wasapi_meter_thread():
                     IMMDeviceEnumeratorLocal,
                     CLSCTX_ALL
                 )
-                # eRender=0, eConsole=0
-                device_pp = POINTER(IMMDevice)()
-                enumerator.GetDefaultAudioEndpoint(0, 0, device_pp)
-                device = device_pp.contents
+                # comtypes returns ['out'] params as Python return values — don't pass them manually
+                device = enumerator.GetDefaultAudioEndpoint(0, 0)  # eRender=0, eConsole=0
+                iunk   = device.Activate(IAudioMeterInformation._iid_, CLSCTX_ALL, None)
+                meter  = iunk.QueryInterface(IAudioMeterInformation)
 
-                iid = IAudioMeterInformation._iid_
-                iunk_pp = POINTER(IUnknown)()
-                device.Activate(iid, CLSCTX_ALL, None, iunk_pp)
-                meter = cast(iunk_pp, POINTER(IAudioMeterInformation))
-
-            peak = meter.contents.GetPeakValue()
+            peak = meter.GetPeakValue()
 
             with state_lock:
                 state["playback"][0]["level"] = peak
