@@ -287,8 +287,7 @@ def wasapi_meter_thread():
 
     comtypes.CoInitialize()
 
-    # Define IMMDeviceEnumerator inline — avoids pycaw version export differences
-    import comtypes
+    # Define IMMDevice/IMMDeviceEnumerator inline — avoids pycaw version export differences
     from comtypes import GUID, COMMETHOD, HRESULT, IUnknown
     from ctypes import POINTER, c_uint, c_wchar_p
 
