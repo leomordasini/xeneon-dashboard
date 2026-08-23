@@ -32,10 +32,14 @@ OSC_LISTEN_PORT = 9001
 HTTP_PORT       = 8081
 
 # ── STATE ──────────────────────────────────────────────────
+# Babyface Pro channel counts (as shown in TotalMixFX):
+#   Inputs:   8 (AN1, AN2, Instr3, Instr4, AS1/2, ADAT3/4, ADAT5/6, ADAT7/8)
+#   Playback: 6 (AN1/2, PH3/4, AS1/2, ADAT3/4, ADAT5/6, ADAT7/8)
+#   Outputs:  6 (AN1/2, AS1/2, ADAT3/4, ADAT5/6, ADAT7/8, Main)
 state = {
     "inputs":   [{"fader": 0.75, "mute": False} for _ in range(8)],
-    "playback": [{"fader": 0.75, "mute": False} for _ in range(8)],
-    "outputs":  [{"fader": 0.75, "mute": False} for _ in range(8)],
+    "playback": [{"fader": 0.75, "mute": False} for _ in range(6)],
+    "outputs":  [{"fader": 0.75, "mute": False} for _ in range(6)],
     "main_out": 0.75,
     "connected": False,
 }
@@ -267,7 +271,7 @@ class MixerHandler(http.server.BaseHTTPRequestHandler):
             send_fader(bank, ch, val)
             bk = {"input":"inputs","playback":"playback","output":"outputs"}.get(bank,"playback")
             with state_lock:
-                if 0 <= ch < 8:
+                if 0 <= ch < len(state[bk]):
                     state[bk][ch]["fader"] = val
             self._json(200, b'{"ok":true}')
 
@@ -276,7 +280,7 @@ class MixerHandler(http.server.BaseHTTPRequestHandler):
             send_mute(bank, ch, muted)
             bk = {"input":"inputs","playback":"playback","output":"outputs"}.get(bank,"playback")
             with state_lock:
-                if 0 <= ch < 8:
+                if 0 <= ch < len(state[bk]):
                     state[bk][ch]["mute"] = muted
             self._json(200, b'{"ok":true}')
 
