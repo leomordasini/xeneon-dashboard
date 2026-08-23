@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Home Lights</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+button, input, .chip, .scene-btn, .room-tab, .mode-tab, .dot, .power-btn { touch-action: manipulation; cursor: pointer; }
+input[type="range"] { touch-action: none; }
+
+:root {
+  --bg: #07070f;
+  --surface: rgba(255,255,255,0.06);
+  --border: rgba(255,255,255,0.10);
+  --text: #f0f0f8;
+  --text-dim: rgba(240,240,248,0.45);
+  --text-mid: rgba(240,240,248,0.7);
+  --accent: #ff9a3c;
+  --glow: rgba(255,154,60,0.25);
+  --radius: 20px;
+  --radius-sm: 12px;
+  --t: 0.18s ease;
+}
+
+html, body {
+  width: 2536px; height: 696px;
+  overflow: hidden;
+  background: var(--bg);
+  font-family: -apple-system, 'Segoe UI', system-ui, sans-serif;
+  color: var(--text);
+  user-select: none;
+}
+
+.bg-glow {
+  position: fixed; inset: 0; pointer-events: none;
+  background: radial-gradient(ellipse 900px 500px at 15% 50%, var(--glow) 0%, transparent 70%);
+  transition: background 0.6s;
+}
+
+/* Toast */
+.toast {
+  position: fixed; bottom: 40px; left: 50%;
+  transform: translateX(-50%) translateY(120px);
+  background: rgba(20,20,30,0.96); border: 1px solid var(--border);
+  border-radius: 16px; padding: 18px 44px; font-size: 26px;
+  color: var(--text-mid); transition: transform 0.3s; z-index: 999;
+  white-space: nowrap;
+}
+.toast.show { transform: translateX(-50%) translateY(0); }
+.toast.ok  { border-color: #4ade80; color: #4ade80; }
+.toast.err { border-color: #f87171; color: #f87171; }
+
+/* Swiper */
+.swiper-track {
+  display: flex; width: 5072px; height: 696px;
+  will-change: transform;
+  transition: transform 0.42s cubic-bezier(0.25,0.46,0.45,0.94);
+}
+.swiper-track.notrans { transition: none; }
+
+/* Panel */
+.panel { width: 2536px; height: 696px; display: flex; flex-direction: column; padding: 22px 32px 14px; }
+
+/* Header */
+.header { display: flex; align-items: center; justify-content: space-between; height: 80px; flex-shrink: 0; }
+
+.room-tabs { display: flex; gap: 8px; background: var(--surface); border-radius: 18px; padding: 6px; }
+.room-tab {
+  padding: 14px 56px; border-radius: 13px; font-size: 30px; font-weight: 600;
+  color: var(--text-dim); border: none; background: none; transition: all var(--t);
+}
+.room-tab.active { background: var(--accent); color: #000; box-shadow: 0 0 24px var(--glow); }
+
+.status-pill {
+  display: flex; align-items: center; gap: 14px;
+  background: var(--surface); border: 1.5px solid var(--border);
+  border-radius: 50px; padding: 14px 32px; font-size: 26px; color: var(--text-dim);
+}
+.dot-status { width: 14px; height: 14px; border-radius: 50%; background: #555; flex-shrink: 0; transition: all 0.3s; }
+.dot-status.on  { background: #4ade80; box-shadow: 0 0 10px rgba(74,222,128,0.7); }
+.dot-status.err { background: #f87171; box-shadow: 0 0 10px rgba(248,113,113,0.7); }
+
+/* Content */
+.content { flex: 1; display: flex; margin-top: 14px; min-height: 0; }
+.divider { width: 1px; background: var(--border); margin: 0 30px; flex-shrink: 0; }
+
+/* Col 1 — Power */
+.col-power { width: 500px; flex-shrink: 0; display: flex; flex-direction: column; gap: 16px; }
+.room-info { display: flex; align-items: center; gap: 16px; }
+.room-icon { width: 78px; height: 78px; border-radius: 20px; background: var(--surface); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 42px; flex-shrink: 0; }
+.room-name { font-size: 42px; font-weight: 700; }
+.light-count { font-size: 22px; color: var(--text-dim); margin-top: 4px; }
+
+.power-btn {
+  width: 100%; height: 114px; border-radius: var(--radius);
+  border: 2px solid var(--border); background: var(--surface);
+  color: var(--text-dim); font-size: 30px; font-weight: 600; letter-spacing: 0.08em;
+  display: flex; align-items: center; justify-content: center; gap: 20px;
+  transition: all 0.2s;
+}
+.power-btn.on { background: var(--accent); border-color: var(--accent); color: #000; box-shadow: 0 0 36px var(--glow); }
+.power-btn.pressing { transform: scale(0.96); opacity: 0.8; }
+
+.pwr-icon { width: 42px; height: 42px; border: 4px solid currentColor; border-radius: 50%; position: relative; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.pwr-icon::before { content: ''; position: absolute; top: -5px; width: 5px; height: 20px; background: currentColor; border-radius: 3px; }
+
+.sec-label { font-size: 18px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-dim); }
+.chips { display: flex; flex-wrap: wrap; gap: 10px; }
+.chip { padding: 13px 22px; border-radius: 50px; font-size: 22px; font-weight: 500; border: 1.5px solid var(--border); background: var(--surface); color: var(--text-dim); transition: all var(--t); }
+.chip.on { background: var(--accent); border-color: var(--accent); color: #000; font-weight: 600; box-shadow: 0 0 14px var(--glow); }
+.chip.pressing { transform: scale(0.93); opacity: 0.75; }
+
+/* Col 2 — Sliders */
+.col-sliders { width: 840px; flex-shrink: 0; display: flex; flex-direction: column; justify-content: center; gap: 36px; }
+.sgrp { display: flex; flex-direction: column; gap: 14px; }
+.shdr { display: flex; justify-content: space-between; align-items: baseline; }
+.slabel { font-size: 22px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-dim); }
+.sval { font-size: 44px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.sunit { font-size: 24px; font-weight: 400; color: var(--text-dim); margin-left: 4px; }
+.ct-hints { display: flex; justify-content: space-between; font-size: 18px; color: var(--text-dim); margin-top: 4px; }
+
+input[type="range"] {
+  -webkit-appearance: none; appearance: none;
+  width: 100%; height: 22px; border-radius: 11px; outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 60px; height: 60px; border-radius: 50%; background: #fff;
+  box-shadow: 0 2px 14px rgba(0,0,0,0.5), 0 0 0 4px rgba(255,255,255,0.15);
+}
+
+.bri-track { background: linear-gradient(to right, #111 0%, var(--accent) 100%); }
+.ct-track  { background: linear-gradient(to right, #ff9a3c, #ffd580, #fff5e0, #fff, #e8f4ff, #c7e0ff, #aaccff); }
+.hue-track { background: linear-gradient(to right, hsl(0,100%,50%), hsl(30,100%,50%), hsl(60,100%,50%), hsl(90,100%,50%), hsl(120,100%,50%), hsl(150,100%,50%), hsl(180,100%,50%), hsl(210,100%,50%), hsl(240,100%,50%), hsl(270,100%,50%), hsl(300,100%,50%), hsl(330,100%,50%), hsl(360,100%,50%)); }
+.sat-track { background: linear-gradient(to right, #888, hsl(30,100%,50%)); }
+
+/* Col 3 — Color/Scenes */
+.col-color { flex: 1; display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.mode-tabs { display: flex; gap: 6px; background: var(--surface); border-radius: 14px; padding: 6px; align-self: flex-start; }
+.mode-tab { padding: 13px 44px; border-radius: 10px; font-size: 26px; font-weight: 600; color: var(--text-dim); border: none; background: none; transition: all var(--t); }
+.mode-tab.active { background: rgba(255,255,255,0.09); color: var(--text); border: 1px solid var(--border); }
+
+.csec { display: flex; flex-direction: column; gap: 16px; }
+.csec.hidden { display: none; }
+
+.scene-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; }
+.scene-btn {
+  padding: 18px 8px; border-radius: var(--radius-sm);
+  background: var(--surface); border: 1.5px solid var(--border);
+  color: var(--text-mid); font-size: 18px; font-weight: 500;
+  display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center;
+  transition: all var(--t);
+}
+.scene-btn .si { font-size: 28px; line-height: 1; }
+.scene-btn.pressing { background: rgba(255,255,255,0.09); border-color: var(--accent); transform: scale(0.95); }
+
+.color-preview { height: 52px; border-radius: 14px; border: 1px solid var(--border); transition: background 0.2s; }
+
+/* Nav dots */
+.nav { display: flex; justify-content: center; gap: 12px; height: 26px; flex-shrink: 0; margin-top: 8px; align-items: center; }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: rgba(255,255,255,0.22); transition: all var(--t); }
+.dot.active { width: 32px; border-radius: 5px; background: var(--accent); }
+</style>
+</head>
+<body>
+<div class="bg-glow" id="glow"></div>
+<div class="toast" id="toast"></div>
+
+<div class="swiper-track" id="track">
+
+  <!-- ══ KITCHEN ══ -->
+  <div class="panel">
+    <div class="header">
+      <div class="room-tabs">
+        <button class="room-tab active" onclick="goTo(0)">Kitchen</button>
+        <button class="room-tab"        onclick="goTo(1)">Lounge</button>
+      </div>
+      <div class="status-pill">
+        <div class="dot-status" id="sd1"></div>
+        <span id="st1">Connecting…</span>
+      </div>
+    </div>
+
+    <div class="content">
+      <!-- Power -->
+      <div class="col-power">
+        <div class="room-info">
+          <div class="room-icon">🍳</div>
+          <div><div class="room-name">Kitchen</div><div class="light-count" id="k-cnt">—/5 on</div></div>
+        </div>
+        <button class="power-btn" id="k-pwr" data-room="kitchen">
+          <div class="pwr-icon"></div><span id="k-pwr-lbl">ALL OFF</span>
+        </button>
+        <div class="sec-label">Individual</div>
+        <div class="chips" id="k-chips"></div>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- Sliders -->
+      <div class="col-sliders">
+        <div class="sgrp">
+          <div class="shdr">
+            <span class="slabel">☀ Brightness</span>
+            <span class="sval" id="k-bv">80<span class="sunit">%</span></span>
+          </div>
+          <input type="range" id="k-bri" class="bri-track" min="1" max="100" value="80">
+        </div>
+        <div class="sgrp">
+          <div class="shdr">
+            <span class="slabel">🌡 Color Temp</span>
+            <span class="sval" id="k-ctv">4000<span class="sunit">K</span></span>
+          </div>
+          <input type="range" id="k-ct" class="ct-track" min="0" max="100" value="50">
+          <div class="ct-hints"><span>🔥 2700K</span><span>❄ 6500K</span></div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- Color/Scenes -->
+      <div class="col-color">
+        <div class="mode-tabs">
+          <button class="mode-tab active" id="k-tw" onclick="setMode('kitchen','white')">⬜ White</button>
+          <button class="mode-tab"        id="k-tc" onclick="setMode('kitchen','color')">🎨 Color</button>
+        </div>
+        <div class="csec" id="k-ws">
+          <div class="sec-label">Quick Scenes</div>
+          <div class="scene-grid" id="k-wscenes"></div>
+        </div>
+        <div class="csec hidden" id="k-cs">
+          <div class="color-preview" id="k-cp" style="background:hsl(30,100%,50%)"></div>
+          <div class="sgrp">
+            <div class="shdr">
+              <span class="slabel">Hue</span>
+              <span class="sval" id="k-hv">30<span class="sunit">°</span></span>
+            </div>
+            <input type="range" id="k-hue" class="hue-track" min="0" max="360" value="30">
+          </div>
+          <div class="sgrp">
+            <div class="shdr">
+              <span class="slabel">Saturation</span>
+              <span class="sval" id="k-sv">100<span class="sunit">%</span></span>
+            </div>
+            <input type="range" id="k-sat" class="sat-track" min="0" max="100" value="100">
+          </div>
+          <div class="sec-label">Color Presets</div>
+          <div class="scene-grid" id="k-cscenes"></div>
+        </div>
+      </div>
+    </div>
+    <div class="nav"><div class="dot active" onclick="goTo(0)"></div><div class="dot" onclick="goTo(1)"></div></div>
+  </div>
+
+  <!-- ══ LOUNGE ══ -->
+  <div class="panel">
+    <div class="header">
+      <div class="room-tabs">
+        <button class="room-tab"        onclick="goTo(0)">Kitchen</button>
+        <button class="room-tab active" onclick="goTo(1)">Lounge</button>
+      </div>
+      <div class="status-pill">
+        <div class="dot-status" id="sd2"></div>
+        <span id="st2">Connecting…</span>
+      </div>
+    </div>
+
+    <div class="content">
+      <div class="col-power">
+        <div class="room-info">
+          <div class="room-icon">🛋️</div>
+          <div><div class="room-name">Lounge</div><div class="light-count" id="l-cnt">—/6 on</div></div>
+        </div>
+        <button class="power-btn" id="l-pwr" data-room="lounge">
+          <div class="pwr-icon"></div><span id="l-pwr-lbl">ALL OFF</span>
+        </button>
+        <div class="sec-label">Individual</div>
+        <div class="chips" id="l-chips"></div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="col-sliders">
+        <div class="sgrp">
+          <div class="shdr">
+            <span class="slabel">☀ Brightness</span>
+            <span class="sval" id="l-bv">80<span class="sunit">%</span></span>
+          </div>
+          <input type="range" id="l-bri" class="bri-track" min="1" max="100" value="80">
+        </div>
+        <div class="sgrp">
+          <div class="shdr">
+            <span class="slabel">🌡 Color Temp</span>
+            <span class="sval" id="l-ctv">4000<span class="sunit">K</span></span>
+          </div>
+          <input type="range" id="l-ct" class="ct-track" min="0" max="100" value="50">
+          <div class="ct-hints"><span>🔥 2700K</span><span>❄ 6500K</span></div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="col-color">
+        <div class="mode-tabs">
+          <button class="mode-tab active" id="l-tw" onclick="setMode('lounge','white')">⬜ White</button>
+          <button class="mode-tab"        id="l-tc" onclick="setMode('lounge','color')">🎨 Color</button>
+        </div>
+        <div class="csec" id="l-ws">
+          <div class="sec-label">Quick Scenes</div>
+          <div class="scene-grid" id="l-wscenes"></div>
+        </div>
+        <div class="csec hidden" id="l-cs">
+          <div class="color-preview" id="l-cp" style="background:hsl(270,80%,50%)"></div>
+          <div class="sgrp">
+            <div class="shdr">
+              <span class="slabel">Hue</span>
+              <span class="sval" id="l-hv">270<span class="sunit">°</span></span>
+            </div>
+            <input type="range" id="l-hue" class="hue-track" min="0" max="360" value="270">
+          </div>
+          <div class="sgrp">
+            <div class="shdr">
+              <span class="slabel">Saturation</span>
+              <span class="sval" id="l-sv">80<span class="sunit">%</span></span>
+            </div>
+            <input type="range" id="l-sat" class="sat-track" min="0" max="100" value="80">
+          </div>
+          <div class="sec-label">Color Presets</div>
+          <div class="scene-grid" id="l-cscenes"></div>
+        </div>
+      </div>
+    </div>
+    <div class="nav"><div class="dot" onclick="goTo(0)"></div><div class="dot active" onclick="goTo(1)"></div></div>
+  </div>
+
+</div><!-- /track -->
+
+<script>
+// ── CONFIG ──────────────────────────────────────────────
+// All API calls go through local server proxy at same origin
+const API = '';  // empty = same host/port
+
+const ROOMS = {
+  kitchen: {
+    entities: [
+      { id: 'light.kitchen_kitchen2', label: 'K2' },
+      { id: 'light.kitchen_kitchen3', label: 'K3' },
+      { id: 'light.kitchen_kitchen4', label: 'K4' },
+      { id: 'light.kitchen_kitchen5', label: 'K5' },
+      { id: 'light.signify_netherlands_b_v_lca007_3', label: 'Accent' }
+    ],
+    accent: '#ff9a3c', glow: 'rgba(255,154,60,0.22)'
+  },
+  lounge: {
+    entities: [
+      { id: 'light.lounge_lounge1', label: 'L1' },
+      { id: 'light.lounge2',        label: 'L2' },
+      { id: 'light.lounge3',        label: 'L3' },
+      { id: 'light.lounge_lounge4', label: 'L4' },
+      { id: 'light.lounge5',        label: 'L5' },
+      { id: 'light.lounge6',        label: 'L6' }
+    ],
+    accent: '#8b6ff5', glow: 'rgba(139,111,245,0.22)'
+  }
+};
+
+const WHITE_SCENES = [
+  { name: 'Relax',    icon: '😌', bri: 55,  ct: 20  },
+  { name: 'Evening',  icon: '🌆', bri: 40,  ct: 5   },
+  { name: 'Reading',  icon: '📖', bri: 85,  ct: 60  },
+  { name: 'Daylight', icon: '☀️', bri: 100, ct: 80  },
+  { name: 'Energize', icon: '⚡', bri: 100, ct: 100 },
+  { name: 'Night',    icon: '🌙', bri: 8,   ct: 0   }
+];
+const COLOR_SCENES = [
+  { name: 'Sunset', icon: '🌅', h: 20,  s: 90  },
+  { name: 'Ocean',  icon: '🌊', h: 200, s: 80  },
+  { name: 'Forest', icon: '🌿', h: 120, s: 70  },
+  { name: 'Neon',   icon: '💚', h: 145, s: 100 },
+  { name: 'Violet', icon: '💜', h: 270, s: 80  },
+  { name: 'Candy',  icon: '🌸', h: 320, s: 75  }
+];
+
+// ── STATE ────────────────────────────────────────────────
+let haState = {}, currentPanel = 0;
+
+// ── HELPERS ──────────────────────────────────────────────
+const p  = r => r === 'kitchen' ? 'k' : 'l';
+const $  = id => document.getElementById(id);
+const ctm = v => Math.round(370 - (v/100)*(370-153));
+const ctK = m => Math.round(1000000/m/100)*100;
+
+let toastTimer;
+function toast(msg, type='') {
+  const el = $('toast');
+  el.textContent = msg; el.className = 'toast show ' + type;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.className = 'toast', 2800);
+}
+
+function press(el) {
+  el.classList.add('pressing');
+  setTimeout(() => el.classList.remove('pressing'), 180);
+}
+
+// ── HA API (via local proxy) ─────────────────────────────
+async function ha(method, path, body) {
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(API + path, opts);
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  return res.json();
+}
+
+async function svc(domain, service, data) {
+  try {
+    await ha('POST', '/api/services/' + domain + '/' + service, data);
+    return true;
+  } catch(e) {
+    toast('⚠ ' + e.message, 'err');
+    return false;
+  }
+}
+
+async function fetchStates() {
+  const ids = [...ROOMS.kitchen.entities, ...ROOMS.lounge.entities].map(e => e.id);
+  const results = await Promise.allSettled(ids.map(id => ha('GET', '/api/states/' + id)));
+  let ok = false;
+  results.forEach((r, i) => {
+    if (r.status === 'fulfilled') {
+      ok = true;
+      const d = r.value;
+      haState[ids[i]] = {
+        on:         d.state === 'on',
+        brightness: d.attributes.brightness,
+        color_temp: d.attributes.color_temp,
+        hs_color:   d.attributes.hs_color
+      };
+    }
+  });
+  return ok;
+}
+
+// ── SWIPE ────────────────────────────────────────────────
+const track = $('track');
+let sx=0, sy=0, dragging=false, cx=0, locked=false;
+
+function goTo(i) {
+  currentPanel = i;
+  track.classList.remove('notrans');
+  track.style.transform = 'translateX(' + (-i*2536) + 'px)';
+  document.querySelectorAll('.room-tab').forEach((t,ti) => t.classList.toggle('active', ti%2===i));
+  document.querySelectorAll('.dot').forEach((d,di) => d.classList.toggle('active', di%2===i));
+  const r = i===0 ? 'kitchen' : 'lounge';
+  document.documentElement.style.setProperty('--accent', ROOMS[r].accent);
+  document.documentElement.style.setProperty('--glow', ROOMS[r].glow);
+  $('glow').style.background = 'radial-gradient(ellipse 900px 500px at 15% 50%, ' + ROOMS[r].glow + ' 0%, transparent 70%)';
+}
+
+track.addEventListener('pointerdown', e => {
+  if (e.target.closest('button,input,.chip,.scene-btn,.dot')) return;
+  sx=e.clientX; sy=e.clientY; dragging=true; locked=false;
+  cx=-currentPanel*2536; track.classList.add('notrans');
+  track.setPointerCapture(e.pointerId);
+}, {passive:true});
+
+track.addEventListener('pointermove', e => {
+  if (!dragging) return;
+  const dx=e.clientX-sx, dy=e.clientY-sy;
+  if (!locked && Math.abs(dy)>Math.abs(dx) && Math.abs(dy)>12) { dragging=false; goTo(currentPanel); return; }
+  if (Math.abs(dx)>12) locked=true;
+  if (locked) track.style.transform='translateX('+(cx+dx)+'px)';
+}, {passive:true});
+
+track.addEventListener('pointerup', e => {
+  if (!dragging) return; dragging=false; locked=false;
+  const dx=e.clientX-sx;
+  if (dx<-60&&currentPanel<1) goTo(1);
+  else if (dx>60&&currentPanel>0) goTo(0);
+  else goTo(currentPanel);
+});
+track.addEventListener('pointercancel',()=>{dragging=false;locked=false;goTo(currentPanel);});
+
+// ── SLIDER FACTORY ───────────────────────────────────────
+function mkSlider(el, onMove, onEnd) {
+  let active=false;
+  const val = cx => {
+    const r=el.getBoundingClientRect();
+    return Math.round(+el.min + Math.max(0,Math.min(1,(cx-r.left)/r.width))*(+el.max-+el.min));
+  };
+  el.addEventListener('pointerdown', e => {
+    active=true; el.setPointerCapture(e.pointerId);
+    const v=val(e.clientX); el.value=v; onMove(v); e.stopPropagation();
+  });
+  el.addEventListener('pointermove', e => {
+    if (!active) return;
+    const v=val(e.clientX); el.value=v; onMove(v); e.stopPropagation();
+  });
+  el.addEventListener('pointerup', e => {
+    if (!active) return; active=false;
+    const v=val(e.clientX); el.value=v; onMove(v); onEnd(v); e.stopPropagation();
+  });
+  el.addEventListener('pointercancel',()=>active=false);
+}
+
+// ── CONTROLS ─────────────────────────────────────────────
+async function toggleGroup(room, btn) {
+  press(btn);
+  const ids = ROOMS[room].entities.map(e=>e.id);
+  const anyOn = ids.some(id=>haState[id]?.on);
+  ids.forEach(id => { if (!haState[id]) haState[id]={on:false}; haState[id].on=!anyOn; });
+  updateUI();
+  const ok = await svc('light', anyOn?'turn_off':'turn_on', {entity_id:ids});
+  if (ok) toast(anyOn?'💡 All off':'💡 All on','ok');
+  setTimeout(refresh, 1200);
+}
+
+async function toggleLight(id, chip) {
+  press(chip);
+  const isOn = haState[id]?.on;
+  if (!haState[id]) haState[id]={on:false};
+  haState[id].on=!isOn; updateUI();
+  await svc('light', isOn?'turn_off':'turn_on', {entity_id:id});
+  setTimeout(refresh, 1200);
+}
+
+function setMode(room, mode) {
+  const x=p(room);
+  $(x+'-tw').classList.toggle('active', mode==='white');
+  $(x+'-tc').classList.toggle('active', mode==='color');
+  $(x+'-ws').classList.toggle('hidden', mode!=='white');
+  $(x+'-cs').classList.toggle('hidden', mode!=='color');
+}
+
+async function applyWhiteScene(room, sc, btn) {
+  press(btn);
+  const x=p(room), ids=ROOMS[room].entities.map(e=>e.id);
+  const bri=Math.round(sc.bri/100*255), mireds=ctm(sc.ct);
+  await svc('light','turn_on',{entity_id:ids,brightness:bri,color_temp:mireds});
+  $(x+'-bri').value=sc.bri; $(x+'-bv').innerHTML=sc.bri+'<span class="sunit">%</span>';
+  $(x+'-ct').value=sc.ct;   $(x+'-ctv').innerHTML=ctK(mireds)+'<span class="sunit">K</span>';
+  toast('🎬 '+sc.name,'ok');
+}
+
+async function applyColorScene(room, sc, btn) {
+  press(btn);
+  const x=p(room), ids=ROOMS[room].entities.map(e=>e.id);
+  await svc('light','turn_on',{entity_id:ids,hs_color:[sc.h,sc.s]});
+  $(x+'-hue').value=sc.h; $(x+'-hv').innerHTML=sc.h+'<span class="sunit">°</span>';
+  $(x+'-sat').value=sc.s; $(x+'-sv').innerHTML=sc.s+'<span class="sunit">%</span>';
+  $(x+'-cp').style.background='hsl('+sc.h+','+sc.s+'%,50%)';
+  toast('🎨 '+sc.name,'ok');
+}
+
+// ── BUILD UI ─────────────────────────────────────────────
+function buildChips() {
+  Object.entries(ROOMS).forEach(([room,cfg]) => {
+    const c=$(p(room)+'-chips'); c.innerHTML='';
+    cfg.entities.forEach(ent => {
+      const el=document.createElement('div');
+      el.className='chip'; el.id='chip-'+ent.id.replace(/\./g,'-');
+      el.textContent=ent.label;
+      el.addEventListener('pointerdown',()=>toggleLight(ent.id,el));
+      c.appendChild(el);
+    });
+  });
+}
+
+function buildScenes() {
+  ['kitchen','lounge'].forEach(room => {
+    const x=p(room);
+    const ws=$(x+'-wscenes'); ws.innerHTML='';
+    WHITE_SCENES.forEach(sc => {
+      const b=document.createElement('button'); b.className='scene-btn';
+      b.innerHTML='<span class="si">'+sc.icon+'</span>'+sc.name;
+      b.addEventListener('pointerdown',()=>applyWhiteScene(room,sc,b));
+      ws.appendChild(b);
+    });
+    const cs=$(x+'-cscenes'); cs.innerHTML='';
+    COLOR_SCENES.forEach(sc => {
+      const b=document.createElement('button'); b.className='scene-btn';
+      b.innerHTML='<span class="si">'+sc.icon+'</span>'+sc.name;
+      b.addEventListener('pointerdown',()=>applyColorScene(room,sc,b));
+      cs.appendChild(b);
+    });
+  });
+}
+
+function buildSliders() {
+  ['kitchen','lounge'].forEach(room => {
+    const x=p(room);
+
+    mkSlider($(x+'-bri'),
+      v => $(x+'-bv').innerHTML=v+'<span class="sunit">%</span>',
+      v => svc('light','turn_on',{entity_id:ROOMS[room].entities.map(e=>e.id),brightness:Math.round(v/100*255)})
+    );
+
+    mkSlider($(x+'-ct'),
+      v => $(x+'-ctv').innerHTML=ctK(ctm(v))+'<span class="sunit">K</span>',
+      v => svc('light','turn_on',{entity_id:ROOMS[room].entities.map(e=>e.id),color_temp:ctm(v)})
+    );
+
+    const updateColor = () => {
+      const h=$(x+'-hue').value, s=$(x+'-sat').value;
+      $(x+'-cp').style.background='hsl('+h+','+s+'%,50%)';
+    };
+
+    mkSlider($(x+'-hue'),
+      v => { $(x+'-hv').innerHTML=v+'<span class="sunit">°</span>'; updateColor(); },
+      ()=> svc('light','turn_on',{entity_id:ROOMS[room].entities.map(e=>e.id),hs_color:[+$(x+'-hue').value,+$(x+'-sat').value]})
+    );
+
+    mkSlider($(x+'-sat'),
+      v => { $(x+'-sv').innerHTML=v+'<span class="sunit">%</span>'; updateColor(); },
+      ()=> svc('light','turn_on',{entity_id:ROOMS[room].entities.map(e=>e.id),hs_color:[+$(x+'-hue').value,+$(x+'-sat').value]})
+    );
+  });
+}
+
+// Wire power buttons
+document.querySelectorAll('.power-btn').forEach(btn => {
+  btn.addEventListener('pointerdown', () => toggleGroup(btn.dataset.room, btn));
+});
+
+// ── UI UPDATE ────────────────────────────────────────────
+function updateUI() {
+  Object.entries(ROOMS).forEach(([room,cfg]) => {
+    const x=p(room);
+    const onCnt=cfg.entities.filter(e=>haState[e.id]?.on).length;
+    const anyOn=onCnt>0;
+    $(x+'-cnt').textContent=onCnt+'/'+cfg.entities.length+' on';
+    const btn=$(x+'-pwr');
+    btn.className='power-btn'+(anyOn?' on':'');
+    $(x+'-pwr-lbl').textContent=anyOn?'ALL ON':'ALL OFF';
+    cfg.entities.forEach(ent=>{
+      const chip=$('chip-'+ent.id.replace(/\./g,'-'));
+      if(chip) chip.className='chip'+(haState[ent.id]?.on?' on':'');
+    });
+    // Sync brightness from first on-light
+    const firstOn=cfg.entities.find(e=>haState[e.id]?.on);
+    if(firstOn){
+      const st=haState[firstOn.id];
+      if(st.brightness!=null){
+        const bv=Math.round(st.brightness/255*100);
+        $(x+'-bri').value=bv;
+        $(x+'-bv').innerHTML=bv+'<span class="sunit">%</span>';
+      }
+      if(st.color_temp!=null){
+        const sv=Math.max(0,Math.min(100,Math.round((370-st.color_temp)/(370-153)*100)));
+        $(x+'-ct').value=sv;
+        $(x+'-ctv').innerHTML=ctK(st.color_temp)+'<span class="sunit">K</span>';
+      }
+    }
+  });
+}
+
+function setStatus(ok) {
+  ['sd1','sd2'].forEach(id=>$(id).className='dot-status '+(ok?'on':'err'));
+  ['st1','st2'].forEach(id=>$(id).textContent=ok?'Connected':'Offline');
+}
+
+// ── POLL ─────────────────────────────────────────────────
+async function refresh() {
+  try { const ok=await fetchStates(); setStatus(ok); if(ok) updateUI(); }
+  catch(e) { setStatus(false); }
+}
+
+// ── INIT ─────────────────────────────────────────────────
+buildChips();
+buildScenes();
+buildSliders();
+refresh();
+setInterval(refresh, 5000);
+</script>
+</body>
+</html>
