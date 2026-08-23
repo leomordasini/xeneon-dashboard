@@ -14,6 +14,8 @@ import os
 PORT     = 8080
 HA_URL   = "http://192.168.1.30:8123"
 HA_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiIyNTkyYmQxODU2N2Q0MjJmOWZkNmRlYTc2MjdmYTUyNyIsImlhdCI6MTc4NzQ1MjgwOSwiZXhwIjoyMTAyODEyODA5fQ.PDfpA3-H5g5v2UHPf6Lhiq5iI5eR5IvINOVgQab-kmI"
+GOVEE_URL = "https://developer-api.govee.com/v1"
+GOVEE_KEY = "0f47a0e4-9ed1-4dd0-a4ab-3951563e8720"
 MIXER_URL = "http://127.0.0.1:8081"
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -31,8 +33,9 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             self._proxy_to(HA_URL, "GET", None, ha=True)
         elif self.path.startswith("/mixer/"):
             self._proxy_to(MIXER_URL, "GET", None, ha=False)
+        elif self.path.startswith("/govee/"):
+            self._proxy_govee("GET", None)
         else:
-            # Serve file but strip query strings (cache busters) before lookup
             self.path = self.path.split("?")[0]
             super().do_GET()
 
@@ -50,6 +53,8 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             self._proxy_to(HA_URL, "POST", body, ha=True)
         elif self.path.startswith("/mixer/"):
             self._proxy_to(MIXER_URL, "POST", body, ha=False)
+        elif self.path.startswith("/govee/"):
+            self._proxy_govee("PUT", body)
         else:
             self.send_error(405)
 
@@ -61,6 +66,31 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         req.add_header("Content-Type", "application/json")
         try:
             with urllib.request.urlopen(req, timeout=6) as resp:
+                data = resp.read()
+                self.send_response(resp.status)
+                self.send_header("Content-Type", "application/json")
+                self._cors()
+                self.end_headers()
+                self.wfile.write(data)
+        except urllib.error.HTTPError as e:
+            data = e.read()
+            self.send_response(e.code)
+            self.send_header("Content-Type", "application/json")
+            self._cors()
+            self.end_headers()
+            self.wfile.write(data)
+        except Exception as e:
+            self.send_error(502, str(e))
+
+    def _proxy_govee(self, method, body):
+        # /govee/devices/control → PUT https://developer-api.govee.com/v1/devices/control
+        govee_path = self.path[len("/govee"):]  # strip /govee prefix
+        url = GOVEE_URL + govee_path
+        req = urllib.request.Request(url, data=body, method=method)
+        req.add_header("Govee-API-Key", GOVEE_KEY)
+        req.add_header("Content-Type", "application/json")
+        try:
+            with urllib.request.urlopen(req, timeout=8) as resp:
                 data = resp.read()
                 self.send_response(resp.status)
                 self.send_header("Content-Type", "application/json")

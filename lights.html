@@ -52,7 +52,7 @@ html, body {
 
 /* Swiper */
 .swiper-track {
-  display: flex; width: 5072px; height: 696px;
+  display: flex;  width: 7608px; height: 696px;
   will-change: transform;
   transition: transform 0.42s cubic-bezier(0.25,0.46,0.45,0.94);
 }
@@ -188,6 +188,7 @@ input[type="range"]::-webkit-slider-thumb {
       <div class="room-tabs">
         <button class="room-tab active" onclick="goTo(0)">Kitchen</button>
         <button class="room-tab"        onclick="goTo(1)">Lounge</button>
+        <button class="room-tab"        onclick="goTo(2)">Office</button>
       </div>
       <div class="status-pill">
         <div class="dot-status" id="sd1"></div>
@@ -263,7 +264,7 @@ input[type="range"]::-webkit-slider-thumb {
         </div>
       </div>
     </div>
-    <div class="nav"><div class="dot active" onclick="goTo(0)"></div><div class="dot" onclick="goTo(1)"></div></div>
+    <div class="nav"><div class="dot active" onclick="goTo(0)"></div><div class="dot" onclick="goTo(1)"></div><div class="dot" onclick="goTo(2)"></div></div>
   </div>
 
   <!-- ══ LOUNGE ══ -->
@@ -272,6 +273,7 @@ input[type="range"]::-webkit-slider-thumb {
       <div class="room-tabs">
         <button class="room-tab"        onclick="goTo(0)">Kitchen</button>
         <button class="room-tab active" onclick="goTo(1)">Lounge</button>
+        <button class="room-tab"        onclick="goTo(2)">Office</button>
       </div>
       <div class="status-pill">
         <div class="dot-status" id="sd2"></div>
@@ -344,7 +346,92 @@ input[type="range"]::-webkit-slider-thumb {
         </div>
       </div>
     </div>
-    <div class="nav"><div class="dot" onclick="goTo(0)"></div><div class="dot active" onclick="goTo(1)"></div></div>
+    <div class="nav"><div class="dot" onclick="goTo(0)"></div><div class="dot active" onclick="goTo(1)"></div><div class="dot" onclick="goTo(2)"></div></div>
+  </div>
+
+  <!-- ══ OFFICE ══ -->
+  <div class="panel">
+    <div class="header">
+      <div class="room-tabs">
+        <button class="room-tab"        onclick="goTo(0)">Kitchen</button>
+        <button class="room-tab"        onclick="goTo(1)">Lounge</button>
+        <button class="room-tab active" onclick="goTo(2)">Office</button>
+      </div>
+      <div class="status-pill">
+        <div class="dot-status" id="sd3"></div>
+        <span id="st3">Connecting…</span>
+      </div>
+    </div>
+
+    <div class="content">
+      <!-- Power -->
+      <div class="col-power">
+        <div class="room-info">
+          <div class="room-icon">🖥️</div>
+          <div><div class="room-name">Office</div><div class="light-count" id="o-cnt">— on</div></div>
+        </div>
+        <button class="power-btn" id="o-pwr" onclick="toggleOfficeAll(this)">
+          <div class="pwr-icon"></div><span id="o-pwr-lbl">ALL OFF</span>
+        </button>
+        <div class="sec-label">Individual</div>
+        <div class="chips" id="o-chips"></div>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- Sliders -->
+      <div class="col-sliders">
+        <div class="sgrp">
+          <div class="shdr">
+            <span class="slabel">☀ Brightness</span>
+            <span class="sval" id="o-bv">80<span class="sunit">%</span></span>
+          </div>
+          <input type="range" id="o-bri" class="bri-track" min="1" max="100" value="80">
+        </div>
+        <div class="sgrp">
+          <div class="shdr">
+            <span class="slabel">🌡 Color Temp</span>
+            <span class="sval" id="o-ctv">4000<span class="sunit">K</span></span>
+          </div>
+          <input type="range" id="o-ct" class="ct-track" min="0" max="100" value="50">
+          <div class="ct-hints"><span>🔥 2000K</span><span>❄ 9000K</span></div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- Color/Scenes -->
+      <div class="col-color">
+        <div class="mode-tabs">
+          <button class="mode-tab active" id="o-tw" onclick="setMode('office','white')">⬜ White</button>
+          <button class="mode-tab"        id="o-tc" onclick="setMode('office','color')">🎨 Color</button>
+        </div>
+        <div class="csec" id="o-ws">
+          <div class="sec-label">Quick Scenes</div>
+          <div class="scene-grid" id="o-wscenes"></div>
+        </div>
+        <div class="csec hidden" id="o-cs">
+          <div class="color-preview" id="o-cp" style="background:hsl(200,80%,50%)"></div>
+          <div class="sgrp">
+            <div class="shdr">
+              <span class="slabel">Hue</span>
+              <span class="sval" id="o-hv">200<span class="sunit">°</span></span>
+            </div>
+            <input type="range" id="o-hue" class="hue-track" min="0" max="360" value="200">
+          </div>
+          <div class="sgrp">
+            <div class="shdr">
+              <span class="slabel">Saturation</span>
+              <span class="sval" id="o-sv">80<span class="sunit">%</span></span>
+            </div>
+            <input type="range" id="o-sat" class="sat-track" min="0" max="100" value="80">
+          </div>
+          <div class="sec-label">Color Presets</div>
+          <div class="scene-grid" id="o-cscenes"></div>
+        </div>
+      </div>
+    </div>
+    <div class="nav"><div class="dot" onclick="goTo(0)"></div><div class="dot" onclick="goTo(1)"></div><div class="dot active" onclick="goTo(2)"></div></div>
   </div>
 
 </div><!-- /track -->
@@ -471,12 +558,14 @@ function goTo(i) {
   currentPanel = i;
   track.classList.remove('notrans');
   track.style.transform = 'translateX(' + (-i*2536) + 'px)';
-  document.querySelectorAll('.room-tab').forEach((t,ti) => t.classList.toggle('active', ti%2===i));
-  document.querySelectorAll('.dot').forEach((d,di) => d.classList.toggle('active', di%2===i));
-  const r = i===0 ? 'kitchen' : 'lounge';
-  document.documentElement.style.setProperty('--accent', ROOMS[r].accent);
-  document.documentElement.style.setProperty('--glow', ROOMS[r].glow);
-  $('glow').style.background = 'radial-gradient(ellipse 900px 500px at 15% 50%, ' + ROOMS[r].glow + ' 0%, transparent 70%)';
+  document.querySelectorAll('.room-tab').forEach((t,ti) => t.classList.toggle('active', ti%3===i));
+  document.querySelectorAll('.dot').forEach((d,di) => d.classList.toggle('active', di%3===i));
+  const r = i===0 ? 'kitchen' : i===1 ? 'lounge' : 'office';
+  const accent = i===2 ? '#3cc8ff' : ROOMS[r]?.accent || '#ff9a3c';
+  const glow   = i===2 ? 'rgba(60,200,255,0.22)' : ROOMS[r]?.glow || 'rgba(255,154,60,0.22)';
+  document.documentElement.style.setProperty('--accent', accent);
+  document.documentElement.style.setProperty('--glow', glow);
+  $('glow').style.background = 'radial-gradient(ellipse 900px 500px at 15% 50%, ' + glow + ' 0%, transparent 70%)';
 }
 
 track.addEventListener('pointerdown', e => {
@@ -497,8 +586,8 @@ track.addEventListener('pointermove', e => {
 track.addEventListener('pointerup', e => {
   if (!dragging) return; dragging=false; locked=false;
   const dx=e.clientX-sx;
-  if (dx<-60&&currentPanel<1) goTo(1);
-  else if (dx>60&&currentPanel>0) goTo(0);
+  if (dx<-60&&currentPanel<2) goTo(currentPanel+1);
+  else if (dx>60&&currentPanel>0) goTo(currentPanel-1);
   else goTo(currentPanel);
 });
 track.addEventListener('pointercancel',()=>{dragging=false;locked=false;goTo(currentPanel);});
@@ -687,7 +776,162 @@ async function refresh() {
   catch(e) { setStatus(false); }
 }
 
-// ── INIT ─────────────────────────────────────────────────
+// ── GOVEE CONFIG ─────────────────────────────────────────
+const GOVEE_DEVICES = [
+  { device: '46:14:F6:A9:A3:06:0A:CC', model: 'H606A', label: 'Hexa 1' },
+  { device: '1A:97:E0:89:D6:9E:67:FD', model: 'H606A', label: 'Hexa 2' },
+];
+let goveeState = GOVEE_DEVICES.map(() => ({ on: false, brightness: 80, h: 200, s: 80, ct: 4000 }));
+
+async function goveePut(device, model, cmd) {
+  try {
+    await fetch('/govee/devices/control', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ device, model, cmd })
+    });
+  } catch(e) { toast('⚠ Govee: ' + e.message, 'err'); }
+}
+
+async function goveeCmd(idx, cmd) {
+  const d = GOVEE_DEVICES[idx];
+  await goveePut(d.device, d.model, cmd);
+}
+
+async function goveeCmdAll(cmd) {
+  await Promise.all(GOVEE_DEVICES.map(d => goveePut(d.device, d.model, cmd)));
+}
+
+function hslToRgb(h, s, l) {
+  s /= 100; l /= 100;
+  const k = n => (n + h / 30) % 12;
+  const a = s * Math.min(l, 1 - l);
+  const f = n => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+  return { r: Math.round(f(0)*255), g: Math.round(f(8)*255), b: Math.round(f(4)*255) };
+}
+
+async function toggleOfficeAll(btn) {
+  press(btn);
+  const anyOn = goveeState.some(s => s.on);
+  const newOn = !anyOn;
+  goveeState.forEach(s => s.on = newOn);
+  updateOfficeUI();
+  await goveeCmdAll({ name: 'turn', value: newOn ? 'on' : 'off' });
+  toast(newOn ? '💡 Office on' : '💡 Office off', 'ok');
+}
+
+async function toggleOfficeLight(idx, chip) {
+  press(chip);
+  const newOn = !goveeState[idx].on;
+  goveeState[idx].on = newOn;
+  updateOfficeUI();
+  await goveeCmd(idx, { name: 'turn', value: newOn ? 'on' : 'off' });
+}
+
+function updateOfficeUI() {
+  const onCnt = goveeState.filter(s => s.on).length;
+  $('o-cnt').textContent = onCnt + '/' + GOVEE_DEVICES.length + ' on';
+  const anyOn = onCnt > 0;
+  const btn = $('o-pwr');
+  btn.className = 'power-btn' + (anyOn ? ' on' : '');
+  $('o-pwr-lbl').textContent = anyOn ? 'ALL ON' : 'ALL OFF';
+  GOVEE_DEVICES.forEach((d, i) => {
+    const chip = $('govee-chip-' + i);
+    if (chip) chip.className = 'chip' + (goveeState[i].on ? ' on' : '');
+  });
+  // Update Govee status pill
+  $('sd3').className = 'dot-status on';
+  $('st3').textContent = 'Govee Connected';
+}
+
+function buildOfficeChips() {
+  const c = $('o-chips'); c.innerHTML = '';
+  GOVEE_DEVICES.forEach((d, i) => {
+    const el = document.createElement('div');
+    el.className = 'chip'; el.id = 'govee-chip-' + i;
+    el.textContent = d.label;
+    el.addEventListener('pointerdown', () => toggleOfficeLight(i, el));
+    c.appendChild(el);
+  });
+}
+
+function buildOfficeScenes() {
+  const ws = $('o-wscenes'); ws.innerHTML = '';
+  WHITE_SCENES.forEach(sc => {
+    const b = document.createElement('button'); b.className = 'scene-btn';
+    b.innerHTML = '<span class="si">' + sc.icon + '</span>' + sc.name;
+    b.addEventListener('pointerdown', async () => {
+      press(b);
+      const bri = sc.bri;
+      // Govee color temp range: 2000-9000K; map sc.ct (0-100) to that range
+      const kelvin = Math.round(2000 + (sc.ct / 100) * 7000);
+      $('o-bri').value = bri; $('o-bv').innerHTML = bri + '<span class="sunit">%</span>';
+      $('o-ctv').innerHTML = kelvin + '<span class="sunit">K</span>';
+      await goveeCmdAll({ name: 'brightness', value: bri });
+      await goveeCmdAll({ name: 'colorTem', value: kelvin });
+      toast('🎬 ' + sc.name, 'ok');
+    });
+    ws.appendChild(b);
+  });
+  const cs = $('o-cscenes'); cs.innerHTML = '';
+  COLOR_SCENES.forEach(sc => {
+    const b = document.createElement('button'); b.className = 'scene-btn';
+    b.innerHTML = '<span class="si">' + sc.icon + '</span>' + sc.name;
+    b.addEventListener('pointerdown', async () => {
+      press(b);
+      $('o-hue').value = sc.h; $('o-hv').innerHTML = sc.h + '<span class="sunit">°</span>';
+      $('o-sat').value = sc.s; $('o-sv').innerHTML = sc.s + '<span class="sunit">%</span>';
+      $('o-cp').style.background = 'hsl(' + sc.h + ',' + sc.s + '%,50%)';
+      const rgb = hslToRgb(sc.h, sc.s, 50);
+      await goveeCmdAll({ name: 'color', value: rgb });
+      toast('🎨 ' + sc.name, 'ok');
+    });
+    cs.appendChild(b);
+  });
+}
+
+function buildOfficeSliders() {
+  mkSlider($('o-bri'),
+    v => $('o-bv').innerHTML = v + '<span class="sunit">%</span>',
+    v => goveeCmdAll({ name: 'brightness', value: v })
+  );
+  mkSlider($('o-ct'),
+    v => {
+      const k = Math.round(2000 + (v / 100) * 7000);
+      $('o-ctv').innerHTML = k + '<span class="sunit">K</span>';
+    },
+    v => {
+      const k = Math.round(2000 + (v / 100) * 7000);
+      goveeCmdAll({ name: 'colorTem', value: k });
+    }
+  );
+  const updateOColor = () => {
+    const h = $('o-hue').value, s = $('o-sat').value;
+    $('o-cp').style.background = 'hsl(' + h + ',' + s + '%,50%)';
+  };
+  mkSlider($('o-hue'),
+    v => { $('o-hv').innerHTML = v + '<span class="sunit">°</span>'; updateOColor(); },
+    () => {
+      const rgb = hslToRgb(+$('o-hue').value, +$('o-sat').value, 50);
+      goveeCmdAll({ name: 'color', value: rgb });
+    }
+  );
+  mkSlider($('o-sat'),
+    v => { $('o-sv').innerHTML = v + '<span class="sunit">%</span>'; updateOColor(); },
+    () => {
+      const rgb = hslToRgb(+$('o-hue').value, +$('o-sat').value, 50);
+      goveeCmdAll({ name: 'color', value: rgb });
+    }
+  );
+}
+
+// ── GOVEE INIT ───────────────────────────────────────────
+buildOfficeChips();
+buildOfficeScenes();
+buildOfficeSliders();
+updateOfficeUI();
+
+
 buildChips();
 buildScenes();
 buildSliders();
