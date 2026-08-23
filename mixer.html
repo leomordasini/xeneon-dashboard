@@ -261,6 +261,14 @@ input[type="range"].main-slider::-webkit-slider-thumb {
             style="font-size:20px;padding:10px 20px;background:#7c3aed;color:#fff;border:none;border-radius:12px;cursor:pointer;">
       TEST: /1/mute
     </button>
+    <button onclick="testMute('/1/Bus1/mute')"
+            style="font-size:20px;padding:10px 20px;background:#0ea5e9;color:#fff;border:none;border-radius:12px;cursor:pointer;">
+      TEST: /1/Bus1/mute
+    </button>
+    <button onclick="testMute('/harriet/mute1')"
+            style="font-size:20px;padding:10px 20px;background:#0ea5e9;color:#fff;border:none;border-radius:12px;cursor:pointer;">
+      TEST: /harriet/mute1
+    </button>
   </div>
 
   <!-- FADER STRIPS (8 channels) -->
@@ -426,11 +434,14 @@ function setBank(bank) {
 
 // ── MUTE ADDRESS DISCOVERY ───────────────────────────────────
 function testMute(addr) {
-  fetch('/mixer/action', {
+  // TotalMixFX mute = momentary toggle: send 1.0 (press) then 0.0 (release) 100ms later
+  const send = (val) => fetch('/mixer/action', {
     method: 'POST',
     headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ action:'osc_raw', addr: addr, value: 1.0 })
-  }).then(r => r.json()).then(d => alert('Sent: ' + addr + '\nCheck TotalMixFX — did AN1 mute?'))
+    body: JSON.stringify({ action:'osc_raw', addr: addr, value: val })
+  });
+  send(1.0).then(() => setTimeout(() => send(0.0), 100))
+    .then(() => alert('Sent press+release to: ' + addr + '\nDid AN1 M button toggle in TotalMixFX?'))
     .catch(e => alert('Error: ' + e));
 }
 
