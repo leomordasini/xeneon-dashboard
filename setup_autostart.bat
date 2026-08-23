@@ -29,12 +29,14 @@ echo [3/4] Creating DNS record xeneon.mordasin.com...
 "%SCRIPT_DIR%cloudflared.exe" tunnel route dns xeneon xeneon.mordasin.com
 echo.
 
-:: Step 4 - Register Task Scheduler tasks
-echo [4/4] Registering Task Scheduler tasks...
+:: Step 4 - Register Task Scheduler task (single silent launcher)
+echo [4/4] Registering Task Scheduler task...
 
-schtasks /create /tn "XeneonDashboard" /tr "pythonw \"%SCRIPT_DIR%server.py\""    /sc onlogon /delay 0000:05 /rl highest /f
-schtasks /create /tn "XeneonOSCBridge" /tr "pythonw \"%SCRIPT_DIR%osc_bridge.py\"" /sc onlogon /delay 0000:07 /rl highest /f
-schtasks /create /tn "XeneonTunnel"    /tr "pythonw \"%SCRIPT_DIR%tunnel.py\""     /sc onlogon /delay 0000:10 /rl highest /f
+schtasks /delete /tn "XeneonDashboard" /f 2>nul
+schtasks /delete /tn "XeneonOSCBridge" /f 2>nul
+schtasks /delete /tn "XeneonTunnel"    /f 2>nul
+
+schtasks /create /tn "XeneonDashboard" /tr "wscript.exe \"%SCRIPT_DIR%start_background.vbs\"" /sc onlogon /delay 0000:10 /rl highest /f
 
 echo.
 echo ==========================================
