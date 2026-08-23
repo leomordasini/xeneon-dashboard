@@ -35,8 +35,10 @@ import http.server
 # (used to read Software Playback / Hardware Output levels TotalMixFX doesn't send via OSC)
 try:
     import comtypes
-    from pycaw.pycaw import AudioUtilities, IAudioMeterInformation, IMMDeviceEnumerator
-    from pycaw.pycaw import EDataFlow, ERole
+    from ctypes import POINTER, cast
+    from comtypes import CLSCTX_ALL
+    from pycaw.pycaw import (AudioUtilities, IAudioMeterInformation,
+                              IMMDeviceEnumerator, CLSID_MMDeviceEnumerator)
     PYCAW_AVAILABLE = True
     print("pycaw available — WASAPI meters enabled")
 except ImportError:
@@ -276,64 +278,47 @@ def wasapi_meter_thread():
     """
     Poll Windows WASAPI peak levels for Software Playback and Hardware Output channels.
     TotalMixFX does NOT send these via OSC — only Hardware Inputs (bank 1) are broadcast.
-    Runs at ~20fps (50ms interval). Requires pycaw to be installed.
-    Maps:
-      default render device (Babyface AN 1/2) → playback[0] and outputs[0]
+    Runs at 20fps (50ms). Requires pycaw.
+    Maps: default render device peak → playback[0] (AN 1/2) and outputs[0] (AN 1/2)
     """
     if not PYCAW_AVAILABLE:
         return
 
-    # Must initialize COM for this thread
-    import comtypes
     comtypes.CoInitialize()
-
-    meter_render = None  # default speakers meter
-    meter_output = None  # hardware output meter (may be same device)
+    meter = None
 
     while True:
         try:
-            # Acquire meter for default render device (YouTube / Windows audio playback)
-            if meter_render is None:
-                # Use IMMDeviceEnumerator directly — AudioUtilities.GetSpeakers()
-                # returns a pycaw wrapper without a usable .Activate() method
+            if meter is None:
+                # Create IMMDeviceEnumerator via pycaw's CLSID (correct approach)
                 enumerator = comtypes.CoCreateInstance(
-                    comtypes.GUID("{BCDE0395-E52F-467C-8E3D-C4579291692E}"),
-                    None,
-                    comtypes.CLSCTX_ALL,
-                    comtypes.IUnknown
+                    CLSID_MMDeviceEnumerator,
+                    IMMDeviceEnumerator,
+                    CLSCTX_ALL
                 )
-                imm = enumerator.QueryInterface(IMMDeviceEnumerator)
-                # eRender=0, eConsole=0
-                device = imm.GetDefaultAudioEndpoint(0, 0)
-                iface = device.Activate(
-                    IAudioMeterInformation._iid_, comtypes.CLSCTX_ALL, None
+                # eRender=0, eConsole=0 — default playback device
+                device = enumerator.GetDefaultAudioEndpoint(0, 0)
+                meter_iface = device.Activate(
+                    IAudioMeterInformation._iid_, CLSCTX_ALL, None
                 )
-                meter_render = iface.QueryInterface(IAudioMeterInformation)
+                meter = cast(meter_iface, POINTER(IAudioMeterInformation))
 
-            # Read per-channel peaks from Windows audio engine
-            n = meter_render.GetMeteringChannelCount()
-            if n > 0:
-                peaks = meter_render.GetChannelsPeakValues(n)
-                left  = float(peaks[0]) if n > 0 else 0.0
-                right = float(peaks[1]) if n > 1 else left
-                peak_val = max(left, right)
+            # GetPeakValue returns a single float (0.0–1.0) — overall peak across all channels
+            peak = meter.GetPeakValue()
 
-                with state_lock:
-                    # Software Playback AN 1/2 = playback channel index 0
-                    state["playback"][0]["level"] = peak_val
-                    if peak_val > state["playback"][0]["peak"]:
-                        state["playback"][0]["peak"] = peak_val
-                    # Hardware Output AN 1/2 = outputs channel index 0 (same signal path)
-                    state["outputs"][0]["level"] = peak_val
-                    if peak_val > state["outputs"][0]["peak"]:
-                        state["outputs"][0]["peak"] = peak_val
+            with state_lock:
+                state["playback"][0]["level"] = peak
+                if peak > state["playback"][0]["peak"]:
+                    state["playback"][0]["peak"] = peak
+                state["outputs"][0]["level"] = peak
+                if peak > state["outputs"][0]["peak"]:
+                    state["outputs"][0]["peak"] = peak
 
         except Exception as e:
-            # Device changed or COM error — reset and retry next tick
-            meter_render = None
+            meter = None  # reset and re-acquire next tick
             print(f"WASAPI meter error: {e}")
 
-        time.sleep(0.05)  # 50ms = 20fps — smooth enough for VU animation
+        time.sleep(0.05)  # 50ms = 20fps
 
 
 def osc_listener_thread():
