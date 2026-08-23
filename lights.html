@@ -152,6 +152,7 @@ input[type="range"]::-webkit-slider-thumb {
 }
 .scene-btn .si { font-size: 28px; line-height: 1; }
 .scene-btn.pressing { background: rgba(255,255,255,0.09); border-color: var(--accent); transform: scale(0.95); }
+.scene-btn.on { background: rgba(60,200,255,0.15); border-color: var(--accent); color: var(--accent); }
 
 .color-preview { height: 52px; border-radius: 14px; border: 1px solid var(--border); transition: background 0.2s; }
 
@@ -364,7 +365,7 @@ input[type="range"]::-webkit-slider-thumb {
     </div>
 
     <div class="content">
-      <!-- Power -->
+      <!-- Power + device toggles -->
       <div class="col-power">
         <div class="room-info">
           <div class="room-icon">🖥️</div>
@@ -375,11 +376,16 @@ input[type="range"]::-webkit-slider-thumb {
         </button>
         <div class="sec-label">Individual</div>
         <div class="chips" id="o-chips"></div>
+        <div class="sec-label" style="margin-top:14px">Effects</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="scene-btn" id="o-grad" onclick="officeToggleCap('gradientToggle','devices.capabilities.toggle',0,1,'o-grad','Gradient')">〰 Gradient</button>
+          <button class="scene-btn" id="o-dream" onclick="officeToggleCap('dreamViewToggle','devices.capabilities.toggle',0,1,'o-dream','DreamView')">📺 DreamView</button>
+        </div>
       </div>
 
       <div class="divider"></div>
 
-      <!-- Sliders -->
+      <!-- Brightness + mode selector -->
       <div class="col-sliders">
         <div class="sgrp">
           <div class="shdr">
@@ -388,46 +394,59 @@ input[type="range"]::-webkit-slider-thumb {
           </div>
           <input type="range" id="o-bri" class="bri-track" min="1" max="100" value="80">
         </div>
-        <div class="sgrp">
-          <div class="shdr">
-            <span class="slabel">🌡 Color Temp</span>
-            <span class="sval" id="o-ctv">4000<span class="sunit">K</span></span>
-          </div>
-          <input type="range" id="o-ct" class="ct-track" min="0" max="100" value="50">
-          <div class="ct-hints"><span>🔥 2000K</span><span>❄ 9000K</span></div>
+        <div class="mode-tabs" style="margin-top:18px">
+          <button class="mode-tab active" id="o-tw" onclick="setOfficeMode('white')">⬜ White</button>
+          <button class="mode-tab"        id="o-tc" onclick="setOfficeMode('color')">🎨 Color</button>
+          <button class="mode-tab"        id="o-tm" onclick="setOfficeMode('music')">🎵 Music</button>
         </div>
       </div>
 
       <div class="divider"></div>
 
-      <!-- Color/Scenes -->
+      <!-- Right panel: swaps by mode -->
       <div class="col-color">
-        <div class="mode-tabs">
-          <button class="mode-tab active" id="o-tw" onclick="setMode('office','white')">⬜ White</button>
-          <button class="mode-tab"        id="o-tc" onclick="setMode('office','color')">🎨 Color</button>
-        </div>
+        <!-- WHITE MODE -->
         <div class="csec" id="o-ws">
-          <div class="sec-label">Quick Scenes</div>
+          <div class="sgrp">
+            <div class="shdr">
+              <span class="slabel">🌡 Color Temp</span>
+              <span class="sval" id="o-ctv">4000<span class="sunit">K</span></span>
+            </div>
+            <input type="range" id="o-ct" class="ct-track" min="2000" max="9000" value="4000">
+            <div class="ct-hints"><span>🔥 2000K</span><span>❄ 9000K</span></div>
+          </div>
+          <div class="sec-label">Quick Presets</div>
           <div class="scene-grid" id="o-wscenes"></div>
         </div>
+        <!-- COLOR MODE -->
         <div class="csec hidden" id="o-cs">
           <div class="color-preview" id="o-cp" style="background:hsl(200,80%,50%)"></div>
           <div class="sgrp">
-            <div class="shdr">
-              <span class="slabel">Hue</span>
-              <span class="sval" id="o-hv">200<span class="sunit">°</span></span>
-            </div>
+            <div class="shdr"><span class="slabel">Hue</span><span class="sval" id="o-hv">200<span class="sunit">°</span></span></div>
             <input type="range" id="o-hue" class="hue-track" min="0" max="360" value="200">
           </div>
           <div class="sgrp">
-            <div class="shdr">
-              <span class="slabel">Saturation</span>
-              <span class="sval" id="o-sv">80<span class="sunit">%</span></span>
-            </div>
+            <div class="shdr"><span class="slabel">Saturation</span><span class="sval" id="o-sv">80<span class="sunit">%</span></span></div>
             <input type="range" id="o-sat" class="sat-track" min="0" max="100" value="80">
           </div>
           <div class="sec-label">Color Presets</div>
           <div class="scene-grid" id="o-cscenes"></div>
+        </div>
+        <!-- MUSIC MODE -->
+        <div class="csec hidden" id="o-ms">
+          <div class="sec-label">Mode</div>
+          <div class="scene-grid" style="grid-template-columns:1fr 1fr;gap:8px" id="o-music-btns"></div>
+          <div class="sgrp" style="margin-top:14px">
+            <div class="shdr">
+              <span class="slabel">🎚 Sensitivity</span>
+              <span class="sval" id="o-sensv">80<span class="sunit">%</span></span>
+            </div>
+            <input type="range" id="o-sens" class="bri-track" min="0" max="100" value="80">
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;margin-top:12px">
+            <span class="slabel" style="font-size:13px">Auto Color</span>
+            <button class="scene-btn" id="o-autocol" onclick="officeToggleAutoColor()">OFF</button>
+          </div>
         </div>
       </div>
     </div>
@@ -776,30 +795,34 @@ async function refresh() {
   catch(e) { setStatus(false); }
 }
 
-// ── GOVEE CONFIG ─────────────────────────────────────────
+// ── GOVEE V2 CONFIG ──────────────────────────────────────
+const GOVEE_SKU = 'H606A';
 const GOVEE_DEVICES = [
-  { device: '46:14:F6:A9:A3:06:0A:CC', model: 'H606A', label: 'Hexa 1' },
-  { device: '1A:97:E0:89:D6:9E:67:FD', model: 'H606A', label: 'Hexa 2' },
+  { device: '46:14:F6:A9:A3:06:0A:CC', label: 'Hexa 1' },
+  { device: '1A:97:E0:89:D6:9E:67:FD', label: 'Hexa 2' },
 ];
-let goveeState = GOVEE_DEVICES.map(() => ({ on: false, brightness: 80, h: 200, s: 80, ct: 4000 }));
+let goveeState = GOVEE_DEVICES.map(() => ({ on: false, brightness: 80, ct: 4000, h: 200, s: 80 }));
+let officeMusicState = { mode: 1, sensitivity: 80, autoColor: 0 };
+let officeCapState = { gradientToggle: 0, dreamViewToggle: 0 };
+let officeMode = 'white';
 
-async function goveePut(device, model, cmd) {
+// v2 API: POST /govee2/device/control
+async function goveeV2(device, capability) {
   try {
-    await fetch('/govee/devices/control', {
+    const r = await fetch('/govee2/device/control', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ device, model, cmd })
+      body: JSON.stringify({
+        requestId: Math.random().toString(36).slice(2),
+        payload: { sku: GOVEE_SKU, device, capability }
+      })
     });
+    if (!r.ok) { const t = await r.text(); toast('⚠ Govee: ' + r.status, 'err'); }
   } catch(e) { toast('⚠ Govee: ' + e.message, 'err'); }
 }
 
-async function goveeCmd(idx, cmd) {
-  const d = GOVEE_DEVICES[idx];
-  await goveePut(d.device, d.model, cmd);
-}
-
-async function goveeCmdAll(cmd) {
-  await Promise.all(GOVEE_DEVICES.map(d => goveePut(d.device, d.model, cmd)));
+async function goveeV2All(capability) {
+  await Promise.all(GOVEE_DEVICES.map(d => goveeV2(d.device, capability)));
 }
 
 function hslToRgb(h, s, l) {
@@ -807,16 +830,17 @@ function hslToRgb(h, s, l) {
   const k = n => (n + h / 30) % 12;
   const a = s * Math.min(l, 1 - l);
   const f = n => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
-  return { r: Math.round(f(0)*255), g: Math.round(f(8)*255), b: Math.round(f(4)*255) };
+  return (Math.round(f(0)*255) << 16) | (Math.round(f(8)*255) << 8) | Math.round(f(4)*255);
 }
 
+// Power
 async function toggleOfficeAll(btn) {
   press(btn);
   const anyOn = goveeState.some(s => s.on);
   const newOn = !anyOn;
   goveeState.forEach(s => s.on = newOn);
   updateOfficeUI();
-  await goveeCmdAll({ name: 'turn', value: newOn ? 'on' : 'off' });
+  await goveeV2All({ type: 'devices.capabilities.on_off', instance: 'powerSwitch', value: newOn ? 1 : 0 });
   toast(newOn ? '💡 Office on' : '💡 Office off', 'ok');
 }
 
@@ -825,7 +849,49 @@ async function toggleOfficeLight(idx, chip) {
   const newOn = !goveeState[idx].on;
   goveeState[idx].on = newOn;
   updateOfficeUI();
-  await goveeCmd(idx, { name: 'turn', value: newOn ? 'on' : 'off' });
+  await goveeV2(GOVEE_DEVICES[idx].device, { type: 'devices.capabilities.on_off', instance: 'powerSwitch', value: newOn ? 1 : 0 });
+}
+
+// Gradient / DreamView toggles (stateful)
+async function officeToggleCap(instance, type, offVal, onVal, btnId, label) {
+  const cur = officeCapState[instance];
+  const newVal = cur === onVal ? offVal : onVal;
+  officeCapState[instance] = newVal;
+  const btn = $(btnId);
+  btn.classList.toggle('on', newVal === onVal);
+  await goveeV2All({ type, instance, value: newVal });
+  toast((newVal === onVal ? '✅ ' : '⬜ ') + label, 'ok');
+}
+
+// Auto Color toggle for music mode
+async function officeToggleAutoColor() {
+  officeMusicState.autoColor = officeMusicState.autoColor ? 0 : 1;
+  const btn = $('o-autocol');
+  btn.textContent = officeMusicState.autoColor ? 'ON' : 'OFF';
+  btn.classList.toggle('on', !!officeMusicState.autoColor);
+  await sendMusicMode();
+}
+
+async function sendMusicMode() {
+  await goveeV2All({
+    type: 'devices.capabilities.music_setting',
+    instance: 'musicMode',
+    value: {
+      musicMode: officeMusicState.mode,
+      sensitivity: officeMusicState.sensitivity,
+      autoColor: officeMusicState.autoColor
+    }
+  });
+}
+
+// Mode switching
+function setOfficeMode(mode) {
+  officeMode = mode;
+  ['white','color','music'].forEach(m => {
+    $('o-' + (m === 'white' ? 'ws' : m === 'color' ? 'cs' : 'ms')).classList.toggle('hidden', m !== mode);
+    const tab = m === 'white' ? $('o-tw') : m === 'color' ? $('o-tc') : $('o-tm');
+    tab.classList.toggle('active', m === mode);
+  });
 }
 
 function updateOfficeUI() {
@@ -839,7 +905,6 @@ function updateOfficeUI() {
     const chip = $('govee-chip-' + i);
     if (chip) chip.className = 'chip' + (goveeState[i].on ? ' on' : '');
   });
-  // Update Govee status pill
   $('sd3').className = 'dot-status on';
   $('st3').textContent = 'Govee Connected';
 }
@@ -855,26 +920,66 @@ function buildOfficeChips() {
   });
 }
 
+function buildOfficeMusicBtns() {
+  const MUSIC_MODES = [
+    { name: 'Rhythm',   value: 1, icon: '🎶' },
+    { name: 'Thump',    value: 2, icon: '🥁' },
+    { name: 'Energic',  value: 3, icon: '⚡' },
+    { name: 'Windmill', value: 4, icon: '🌀' },
+  ];
+  const g = $('o-music-btns'); g.innerHTML = '';
+  MUSIC_MODES.forEach(m => {
+    const b = document.createElement('button');
+    b.className = 'scene-btn' + (officeMusicState.mode === m.value ? ' on' : '');
+    b.id = 'o-mm-' + m.value;
+    b.innerHTML = '<span class="si">' + m.icon + '</span>' + m.name;
+    b.addEventListener('pointerdown', async () => {
+      press(b);
+      document.querySelectorAll('[id^="o-mm-"]').forEach(x => x.classList.remove('on'));
+      b.classList.add('on');
+      officeMusicState.mode = m.value;
+      await sendMusicMode();
+      toast('🎵 ' + m.name, 'ok');
+    });
+    g.appendChild(b);
+  });
+}
+
 function buildOfficeScenes() {
+  // White presets
+  const WHITE_PRESETS = [
+    { icon: '🧠', name: 'Focus',    ct: 5500, bri: 90 },
+    { icon: '💼', name: 'Work',     ct: 4500, bri: 80 },
+    { icon: '😌', name: 'Relax',    ct: 2700, bri: 50 },
+    { icon: '🌅', name: 'Sunrise',  ct: 2200, bri: 30 },
+  ];
   const ws = $('o-wscenes'); ws.innerHTML = '';
-  WHITE_SCENES.forEach(sc => {
+  WHITE_PRESETS.forEach(sc => {
     const b = document.createElement('button'); b.className = 'scene-btn';
     b.innerHTML = '<span class="si">' + sc.icon + '</span>' + sc.name;
     b.addEventListener('pointerdown', async () => {
       press(b);
-      const bri = sc.bri;
-      // Govee color temp range: 2000-9000K; map sc.ct (0-100) to that range
-      const kelvin = Math.round(2000 + (sc.ct / 100) * 7000);
-      $('o-bri').value = bri; $('o-bv').innerHTML = bri + '<span class="sunit">%</span>';
-      $('o-ctv').innerHTML = kelvin + '<span class="sunit">K</span>';
-      await goveeCmdAll({ name: 'brightness', value: bri });
-      await goveeCmdAll({ name: 'colorTem', value: kelvin });
+      $('o-bri').value = sc.bri; $('o-bv').innerHTML = sc.bri + '<span class="sunit">%</span>';
+      $('o-ct').value = sc.ct; $('o-ctv').innerHTML = sc.ct + '<span class="sunit">K</span>';
+      await goveeV2All({ type: 'devices.capabilities.range', instance: 'brightness', value: sc.bri });
+      await goveeV2All({ type: 'devices.capabilities.color_setting', instance: 'colorTemperatureK', value: sc.ct });
       toast('🎬 ' + sc.name, 'ok');
     });
     ws.appendChild(b);
   });
+  // Color presets
+  const COLOR_PRESETS = [
+    { icon: '🔴', name: 'Red',     h: 0,   s: 100 },
+    { icon: '🟠', name: 'Orange',  h: 30,  s: 100 },
+    { icon: '🟡', name: 'Yellow',  h: 55,  s: 100 },
+    { icon: '🟢', name: 'Green',   h: 120, s: 100 },
+    { icon: '🔵', name: 'Blue',    h: 220, s: 100 },
+    { icon: '🟣', name: 'Purple',  h: 270, s: 100 },
+    { icon: '🌸', name: 'Pink',    h: 320, s: 80  },
+    { icon: '🤍', name: 'Soft W',  h: 200, s: 20  },
+  ];
   const cs = $('o-cscenes'); cs.innerHTML = '';
-  COLOR_SCENES.forEach(sc => {
+  COLOR_PRESETS.forEach(sc => {
     const b = document.createElement('button'); b.className = 'scene-btn';
     b.innerHTML = '<span class="si">' + sc.icon + '</span>' + sc.name;
     b.addEventListener('pointerdown', async () => {
@@ -882,8 +987,7 @@ function buildOfficeScenes() {
       $('o-hue').value = sc.h; $('o-hv').innerHTML = sc.h + '<span class="sunit">°</span>';
       $('o-sat').value = sc.s; $('o-sv').innerHTML = sc.s + '<span class="sunit">%</span>';
       $('o-cp').style.background = 'hsl(' + sc.h + ',' + sc.s + '%,50%)';
-      const rgb = hslToRgb(sc.h, sc.s, 50);
-      await goveeCmdAll({ name: 'color', value: rgb });
+      await goveeV2All({ type: 'devices.capabilities.color_setting', instance: 'colorRgb', value: hslToRgb(sc.h, sc.s, 50) });
       toast('🎨 ' + sc.name, 'ok');
     });
     cs.appendChild(b);
@@ -891,43 +995,40 @@ function buildOfficeScenes() {
 }
 
 function buildOfficeSliders() {
+  // Brightness
   mkSlider($('o-bri'),
     v => $('o-bv').innerHTML = v + '<span class="sunit">%</span>',
-    v => goveeCmdAll({ name: 'brightness', value: v })
+    v => goveeV2All({ type: 'devices.capabilities.range', instance: 'brightness', value: +v })
   );
+  // Color Temp (direct K value now, no mapping needed)
   mkSlider($('o-ct'),
-    v => {
-      const k = Math.round(2000 + (v / 100) * 7000);
-      $('o-ctv').innerHTML = k + '<span class="sunit">K</span>';
-    },
-    v => {
-      const k = Math.round(2000 + (v / 100) * 7000);
-      goveeCmdAll({ name: 'colorTem', value: k });
-    }
+    v => $('o-ctv').innerHTML = v + '<span class="sunit">K</span>',
+    v => goveeV2All({ type: 'devices.capabilities.color_setting', instance: 'colorTemperatureK', value: +v })
   );
+  // Hue
   const updateOColor = () => {
-    const h = $('o-hue').value, s = $('o-sat').value;
-    $('o-cp').style.background = 'hsl(' + h + ',' + s + '%,50%)';
+    $('o-cp').style.background = 'hsl(' + $('o-hue').value + ',' + $('o-sat').value + '%,50%)';
   };
   mkSlider($('o-hue'),
     v => { $('o-hv').innerHTML = v + '<span class="sunit">°</span>'; updateOColor(); },
-    () => {
-      const rgb = hslToRgb(+$('o-hue').value, +$('o-sat').value, 50);
-      goveeCmdAll({ name: 'color', value: rgb });
-    }
+    () => goveeV2All({ type: 'devices.capabilities.color_setting', instance: 'colorRgb', value: hslToRgb(+$('o-hue').value, +$('o-sat').value, 50) })
   );
+  // Saturation
   mkSlider($('o-sat'),
     v => { $('o-sv').innerHTML = v + '<span class="sunit">%</span>'; updateOColor(); },
-    () => {
-      const rgb = hslToRgb(+$('o-hue').value, +$('o-sat').value, 50);
-      goveeCmdAll({ name: 'color', value: rgb });
-    }
+    () => goveeV2All({ type: 'devices.capabilities.color_setting', instance: 'colorRgb', value: hslToRgb(+$('o-hue').value, +$('o-sat').value, 50) })
+  );
+  // Sensitivity
+  mkSlider($('o-sens'),
+    v => $('o-sensv').innerHTML = v + '<span class="sunit">%</span>',
+    v => { officeMusicState.sensitivity = +v; sendMusicMode(); }
   );
 }
 
 // ── GOVEE INIT ───────────────────────────────────────────
 buildOfficeChips();
 buildOfficeScenes();
+buildOfficeMusicBtns();
 buildOfficeSliders();
 updateOfficeUI();
 
